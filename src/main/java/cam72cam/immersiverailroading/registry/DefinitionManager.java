@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.Callable;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -17,20 +18,23 @@ import com.google.gson.JsonParser;
 
 import cam72cam.immersiverailroading.ImmersiveRailroading;
 import cam72cam.immersiverailroading.library.Gauge;
+import cam72cam.immersiverailroading.threading.ThreadingHandler;
+import cam72cam.immersiverailroading.threading.tasks.StockDefinitionTask;
+import cam72cam.immersiverailroading.threading.tasks.StockHeightmapTask;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.ProgressManager;
 import net.minecraftforge.fml.common.ProgressManager.ProgressBar;
 
 public class DefinitionManager {
 
-	private static Map<String, EntityRollingStockDefinition> definitions;
+	public static Map<String, EntityRollingStockDefinition> definitions;
 	
 	@FunctionalInterface
-	private static interface JsonLoader {
+	public static interface JsonLoader {
 		EntityRollingStockDefinition apply(String defID, JsonObject data) throws Exception;
 	}; 
 	
-	private static Map<String, JsonLoader> jsonLoaders;
+	public static Map<String, JsonLoader> jsonLoaders;
 	
 	static {
 		jsonLoaders = new LinkedHashMap<String, JsonLoader>();
@@ -91,6 +95,8 @@ public class DefinitionManager {
 		
 		List<String> blacklist = new ArrayList<String>();
 		
+		List<Callable<Void>> defTasks = new ArrayList<Callable<Void>>();
+				
 		ResourceLocation blacklist_json = new ResourceLocation(ImmersiveRailroading.MODID, "rolling_stock/blacklist.json");
 		
 		List<InputStream> inputs = ImmersiveRailroading.proxy.getResourceStreamAll(blacklist_json);
@@ -139,8 +145,7 @@ public class DefinitionManager {
 						}
 						try {
 							String defID = String.format("rolling_stock/%s/%s.json", defType, defName.getAsString());
-							JsonObject data = getJsonData(defID);
-							definitions.put(defID, jsonLoaders.get(defType).apply(defID, data));
+							defTasks.add(new StockDefinitionTask(defID, defType));
 						} catch (Exception ex) {
 							ImmersiveRailroading.catching(ex);
 						}
@@ -150,17 +155,16 @@ public class DefinitionManager {
 			
 			ProgressManager.pop(bar);
 		}
-		ProgressBar bar = ProgressManager.push("Generating Heightmap", definitions.size());
 		
-		for (EntityRollingStockDefinition def : definitions.values()) {
-			bar.step(def.name());
-			def.initHeightMap();
-		}
+		ThreadingHandler.invokeTasksDirectly(defTasks);
 		
-		ProgressManager.pop(bar);
+		List<Callable<Void>> tasks = new ArrayList<Callable<Void>>();
+		definitions.values().forEach((e) -> tasks.add(new StockHeightmapTask(e)));
+		
+		ThreadingHandler.invokeTasksDirectly(tasks);
 	}
 
-	private static JsonObject getJsonData(String defID) throws IOException {
+	public static JsonObject getJsonData(String defID) throws IOException {
 		ImmersiveRailroading.info("Loading stock " + defID);
 		ResourceLocation resource = new ResourceLocation(ImmersiveRailroading.MODID, defID);
 		

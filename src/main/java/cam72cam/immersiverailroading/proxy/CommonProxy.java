@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import cam72cam.immersiverailroading.net.*;
 import org.apache.commons.io.IOUtils;
 
 import cam72cam.immersiverailroading.Config.ConfigDebug;
@@ -29,7 +28,6 @@ import cam72cam.immersiverailroading.entity.EntityCoupleableRollingStock;
 import cam72cam.immersiverailroading.entity.EntityRollingStock;
 import cam72cam.immersiverailroading.entity.FreightTank;
 import cam72cam.immersiverailroading.entity.HandCar;
-import cam72cam.immersiverailroading.entity.Locomotive;
 import cam72cam.immersiverailroading.entity.LocomotiveDiesel;
 import cam72cam.immersiverailroading.entity.LocomotiveSteam;
 import cam72cam.immersiverailroading.entity.Tender;
@@ -46,9 +44,21 @@ import cam72cam.immersiverailroading.multiblock.MultiblockRegistry;
 import cam72cam.immersiverailroading.multiblock.PlateRollerMultiblock;
 import cam72cam.immersiverailroading.multiblock.RailRollerMultiblock;
 import cam72cam.immersiverailroading.multiblock.SteamHammerMultiblock;
+import cam72cam.immersiverailroading.net.BuildableStockSyncPacket;
+import cam72cam.immersiverailroading.net.ItemRailUpdatePacket;
+import cam72cam.immersiverailroading.net.KeyPressPacket;
+import cam72cam.immersiverailroading.net.MRSSyncPacket;
+import cam72cam.immersiverailroading.net.MousePressPacket;
+import cam72cam.immersiverailroading.net.MultiblockSelectCraftPacket;
+import cam72cam.immersiverailroading.net.PaintSyncPacket;
+import cam72cam.immersiverailroading.net.PassengerPositionsPacket;
+import cam72cam.immersiverailroading.net.PreviewRenderPacket;
+import cam72cam.immersiverailroading.net.SoundPacket;
 import cam72cam.immersiverailroading.registry.DefinitionManager;
 import cam72cam.immersiverailroading.sound.ISound;
 import cam72cam.immersiverailroading.thirdparty.CompatLoader;
+import cam72cam.immersiverailroading.threading.IRThread;
+import cam72cam.immersiverailroading.threading.ThreadingHandler;
 import cam72cam.immersiverailroading.tile.TileMultiblock;
 import cam72cam.immersiverailroading.tile.TileRail;
 import cam72cam.immersiverailroading.tile.TileRailGag;
@@ -69,8 +79,10 @@ import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.event.world.BlockEvent.BreakEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
+import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
 import net.minecraftforge.fml.common.gameevent.TickEvent.WorldTickEvent;
@@ -103,6 +115,8 @@ public abstract class CommonProxy implements IGuiHandler {
     }
     
     public void preInit(FMLPreInitializationEvent event) throws IOException {
+    	//ThreadingHandler.addThread();
+    	
     	configDir = event.getModConfigurationDirectory().getAbsolutePath() + File.separator + ImmersiveRailroading.MODID;
     	// foo/config/immersiverailroading/../../cache/fname
     	cacheDir = configDir + File.separator + ".." + File.separator + ".." + File.separator + "cache" + File.separator;
@@ -110,7 +124,7 @@ public abstract class CommonProxy implements IGuiHandler {
     	new File(cacheDir).mkdirs();
     	
     	DefinitionManager.initDefinitions();
-    	;
+    	
     	OreHelper.IR_RAIL_BED.add(Blocks.BRICK_BLOCK);
     	OreHelper.IR_RAIL_BED.add(Blocks.COBBLESTONE);
     	OreHelper.IR_RAIL_BED.add(new ItemStack(Blocks.CONCRETE, 1, OreDictionary.WILDCARD_VALUE));
@@ -146,6 +160,10 @@ public abstract class CommonProxy implements IGuiHandler {
     	MultiblockRegistry.register(CastingMultiblock.NAME, new CastingMultiblock());
     }
     
+    public void postInit (FMLPostInitializationEvent event) {
+    	//ThreadingHandler.killThread();
+    }
+    
 
 	public void serverStarting(FMLServerStartingEvent event) {
 		event.registerServerCommand(new IRCommand());
@@ -169,10 +187,8 @@ public abstract class CommonProxy implements IGuiHandler {
     	}
     }
     
-    @SuppressWarnings("deprecation")
-	@SubscribeEvent
-    public static void registerBlocks(RegistryEvent.Register<Block> event)
-    {
+    @SubscribeEvent
+    public static void registerBlocks(RegistryEvent.Register<Block> event) {
 		event.getRegistry().register(IRBlocks.BLOCK_RAIL_GAG);
 		event.getRegistry().register(IRBlocks.BLOCK_RAIL);
 		event.getRegistry().register(IRBlocks.BLOCK_RAIL_PREVIEW);
@@ -184,8 +200,7 @@ public abstract class CommonProxy implements IGuiHandler {
     }
     
     @SubscribeEvent
-    public static void registerItems(RegistryEvent.Register<Item> event)
-    {
+    public static void registerItems(RegistryEvent.Register<Item> event) {
     	event.getRegistry().register(IRItems.ITEM_TRACK_BLUEPRINT);
     	event.getRegistry().register(IRItems.ITEM_ROLLING_STOCK);
     	event.getRegistry().register(IRItems.ITEM_ROLLING_STOCK_COMPONENT);
@@ -235,7 +250,7 @@ public abstract class CommonProxy implements IGuiHandler {
 			List<EntityCoupleableRollingStock> entities = world.getEntities(EntityCoupleableRollingStock.class, EntitySelectors.IS_ALIVE);
 			
 			// Try locomotives first
-			for (EntityCoupleableRollingStock stock : entities) {
+			/*for (EntityCoupleableRollingStock stock : entities) {
 				if (stock instanceof Locomotive) {
 					stock = stock.findByUUID(stock.getPersistentID());
 					stock.tickPosRemainingCheck();
@@ -245,7 +260,7 @@ public abstract class CommonProxy implements IGuiHandler {
 			for (EntityCoupleableRollingStock stock : entities) {
 				stock = stock.findByUUID(stock.getPersistentID());
 				stock.tickPosRemainingCheck();
-			}
+			}*/
 			
 			try {
 				Thread.sleep(ConfigDebug.lagServer);

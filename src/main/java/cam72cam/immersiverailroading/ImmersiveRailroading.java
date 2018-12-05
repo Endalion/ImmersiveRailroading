@@ -1,6 +1,9 @@
 package cam72cam.immersiverailroading;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 
 import org.apache.logging.log4j.Logger;
 
@@ -15,6 +18,7 @@ import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
+import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 
@@ -23,7 +27,9 @@ public class ImmersiveRailroading
 {
     public static final String MODID = "immersiverailroading";
     public static final String VERSION = "1.4.1";
+    
 	public static final int ENTITY_SYNC_DISTANCE = 512;
+	public static ForkJoinPool THREADING_EXECUTOR = null;
     
 	private static Logger logger;
 	public static ImmersiveRailroading instance;
@@ -41,13 +47,16 @@ public class ImmersiveRailroading
         instance = this;
         
         World.MAX_ENTITY_RADIUS = 32;
-        
+    	
+    	if (THREADING_EXECUTOR == null) {
+    		THREADING_EXECUTOR = ForkJoinPool.commonPool();//Executors.newFixedThreadPool(ConfigDebug.threadCount);
+    	}
+    	
     	proxy.preInit(event);
     }
     
     @EventHandler
-    public void init(FMLInitializationEvent event)
-    {
+    public void init(FMLInitializationEvent event) {
     	proxy.init(event);
     }
     
@@ -55,6 +64,7 @@ public class ImmersiveRailroading
     public void postInit(FMLPostInitializationEvent event) throws IOException {
 		chunker = new ChunkManager();
 		chunker.init();
+		proxy.postInit(event);
     }
     
     @EventHandler
