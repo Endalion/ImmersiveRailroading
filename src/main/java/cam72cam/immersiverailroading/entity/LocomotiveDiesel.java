@@ -123,7 +123,7 @@ public class LocomotiveDiesel extends Locomotive {
 	}
 	
 	private void setThrottleMap(EntityRollingStock stock, boolean direction) {
-		if (stock instanceof LocomotiveDiesel) {
+		if (stock instanceof LocomotiveDiesel && ((LocomotiveDiesel)stock).getDefinition().muliUnitCapable) {
 			((LocomotiveDiesel) stock).realSetThrottle(this.getThrottle() * (direction ? 1 : -1));
 			((LocomotiveDiesel) stock).realAirBrake(this.getAirBrake());
 		}
@@ -142,7 +142,9 @@ public class LocomotiveDiesel extends Locomotive {
 	@Override
 	public void setThrottle(float newThrottle) {
 		realSetThrottle(newThrottle);
-		this.mapTrain(this, true, false, this::setThrottleMap);
+		if (this.getDefinition().muliUnitCapable) {
+			this.mapTrain(this, true, false, this::setThrottleMap);
+		}
 	}
 	
 	@Override
@@ -217,7 +219,7 @@ public class LocomotiveDiesel extends Locomotive {
 					bell.setVelocity(getVelocity());
 					bell.update();
 				}
-				
+
 				if (idle.isPlaying()) {
 					idle.setPitch(0.7f+this.soundThrottle/4);
 					idle.setVolume(Math.max(0.1f, this.soundThrottle));
@@ -232,13 +234,13 @@ public class LocomotiveDiesel extends Locomotive {
 				return;
 			}
 			
-			Vec3d fakeMotion = new Vec3d(this.motionX, this.motionY, this.motionZ);//VecUtil.fromYaw(this.getCurrentSpeed().minecraft(), this.rotationYaw);
+			Vec3d fakeMotion = new Vec3d(this.motionX, this.motionY, this.motionZ);//VecUtil.fromWrongYaw(this.getCurrentSpeed().minecraft(), this.rotationYaw);
 			
 			List<RenderComponent> exhausts = this.getDefinition().getComponents(RenderComponentType.DIESEL_EXHAUST_X, gauge);
 			float throttle = Math.abs(this.getThrottle()) + 0.05f;
 			if (exhausts != null && isRunning()) {
 				for (RenderComponent exhaust : exhausts) {
-					Vec3d particlePos = this.getPositionVector().add(VecUtil.rotateYaw(exhaust.center(), this.rotationYaw + 180)).addVector(0, 0.35 * gauge.scale(), 0);
+					Vec3d particlePos = this.getPositionVector().add(VecUtil.rotateWrongYaw(exhaust.center(), this.rotationYaw + 180));
 					
 					double smokeMod = (1 + Math.min(1, Math.max(0.2, Math.abs(this.getCurrentSpeed().minecraft())*2)))/2;
 					

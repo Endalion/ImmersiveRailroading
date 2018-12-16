@@ -3,12 +3,13 @@ package cam72cam.immersiverailroading.proxy;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
+import cam72cam.immersiverailroading.render.ExpireableList;
+import cam72cam.immersiverailroading.tile.TileRailBase;
+import cam72cam.immersiverailroading.util.BlockUtil;
+import net.minecraft.nbt.NBTTagCompound;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
@@ -80,6 +81,7 @@ import cam72cam.immersiverailroading.tile.TileMultiblock;
 import cam72cam.immersiverailroading.tile.TileRail;
 import cam72cam.immersiverailroading.tile.TileRailPreview;
 import cam72cam.immersiverailroading.util.GLBoolTracker;
+import cam72cam.immersiverailroading.util.PlacementInfo;
 import cam72cam.immersiverailroading.util.RailInfo;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -144,6 +146,8 @@ import paulscode.sound.SoundSystemConfig;
 @EventBusSubscriber(Side.CLIENT)
 public class ClientProxy extends CommonProxy {
 	private static Map<KeyTypes, KeyBinding> keys = new HashMap<KeyTypes, KeyBinding>();
+	private static Map<Integer, ExpireableList<BlockPos, TileRailPreview>> previews = new HashMap<>();
+	private static ExpireableList<String, RailInfo> infoCache = new ExpireableList<>();
 
 	private static IRSoundManager manager;
 	
@@ -165,7 +169,7 @@ public class ClientProxy extends CommonProxy {
 			dampeningAmount = ridableStock.getDefinition().dampeningAmount;
 		}
 	}
-
+	
 	@Override
 	public Object getClientGuiElement(int ID, EntityPlayer player, World world, int entityIDorPosX, int posY, int posZ) {
 		TileMultiblock te;
@@ -215,7 +219,7 @@ public class ClientProxy extends CommonProxy {
 	public void preInit(FMLPreInitializationEvent event) throws IOException {
 		super.preInit(event);
 		if (ConfigSound.overrideSoundChannels) {
-			SoundSystemConfig.setNumberNormalChannels(2000);
+			SoundSystemConfig.setNumberNormalChannels(Math.max(SoundSystemConfig.getNumberNormalChannels(), 300));
 		}
 		
 		if (Loader.isModLoaded("igwmod")) {
@@ -328,6 +332,12 @@ public class ClientProxy extends CommonProxy {
 		
 		ModelLoader.setCustomModelResourceLocation(IRItems.ITEM_MANUAL, 0,
 				new ModelResourceLocation("minecraft:written_book", ""));
+		
+		ModelLoader.setCustomModelResourceLocation(IRItems.ITEM_PAINT_BRUSH, 0,
+				new ModelResourceLocation(IRItems.ITEM_PAINT_BRUSH.getRegistryName(), ""));
+
+		ModelLoader.setCustomModelResourceLocation(IRItems.ITEM_GOLDEN_SPIKE, 0,
+				new ModelResourceLocation(IRItems.ITEM_GOLDEN_SPIKE.getRegistryName(), ""));
 	}
 	
 	public static final class StockIcon extends TextureAtlasSprite
@@ -358,7 +368,7 @@ public class ClientProxy extends CommonProxy {
     		for (int x = 0; x < this.getIconWidth(); x++) {
     			for (int y = 0; y < this.getIconHeight(); y++) {
     				if (map[x][y] != null && map[x][y] != "") {
-    					int color = renderer.texture.samp(map[x][y]);
+    					int color = renderer.textures.get(null).samp(map[x][y]);
     					image.setRGB(x, this.getIconWidth() - (y + 1), color);
     				} else {
     					image.setRGB(x, this.getIconWidth() - (y + 1), 0);
@@ -390,6 +400,11 @@ public class ClientProxy extends CommonProxy {
 				event.getMap().setTextureEntry(new StockIcon(def));
 			}
 		}
+	}
+	
+	@SubscribeEvent
+	public static void afterTextureStitch(TextureStitchEvent.Post event) {
+		StockRenderCache.tryPrime();
 	}
 
 	@SubscribeEvent
@@ -475,16 +490,16 @@ public class ClientProxy extends CommonProxy {
 	}
 
 	@Override
-	public InputStream getResourceStream(ResourceLocation modelLoc) throws IOException {
-		return Minecraft.getMinecraft().getResourceManager().getResource(modelLoc).getInputStream();
-	}
-	
-	@Override
 	public List<InputStream> getResourceStreamAll(ResourceLocation modelLoc) throws IOException {
 		List<InputStream> res = new ArrayList<InputStream>();
-		for (IResource resource : Minecraft.getMinecraft().getResourceManager().getAllResources(modelLoc)) {
-			res.add(resource.getInputStream());
+		try {
+			for (IResource resource : Minecraft.getMinecraft().getResourceManager().getAllResources(modelLoc)) {
+				res.add(resource.getInputStream());
+			}
+		} catch (java.io.FileNotFoundException ex) {
+			// Ignore
 		}
+		res.addAll(getFileResourceStreams(modelLoc));
 		return res;
 	}
 	
@@ -551,6 +566,7 @@ public class ClientProxy extends CommonProxy {
 	@SubscribeEvent
 	public static void onRenderMouseover(DrawBlockHighlightEvent event) {
 		EntityPlayer player = event.getPlayer();
+		World world = player.world;
 		ItemStack stack = event.getPlayer().getHeldItemMainhand();
 		BlockPos pos = event.getTarget().getBlockPos();
 		
@@ -561,14 +577,24 @@ public class ClientProxy extends CommonProxy {
 		        float hitX = (float)(vec.x - pos.getX());
 		        float hitY = (float)(vec.y - pos.getY());
 		        float hitZ = (float)(vec.z - pos.getZ());
-		        
-		        if (player.getEntityWorld().getBlockState(pos).getBlock() instanceof BlockRailBase) {
-		        	pos = pos.down();
-		        }
-		        
-		        pos = pos.up();
-		        RailInfo info = new RailInfo(stack, player.world, player.getRotationYawHead(), pos, hitX, hitY, hitZ);
-		        
+
+				pos = pos.up();
+
+				if (BlockUtil.canBeReplaced(world, pos.down(), true)) {
+					if (!BlockUtil.isIRRail(world, pos.down()) || TileRailBase.get(world, pos.down()).getRailHeight() < 0.5) {
+						pos = pos.down();
+					}
+				}
+
+		        RailInfo info = new RailInfo(player.world, stack, new PlacementInfo(stack, player.getRotationYawHead(), pos, hitX, hitY, hitZ), null);
+		        String key = info.uniqueID + pos.toLong();
+				RailInfo cached = infoCache.get(key);
+		        if (cached != null) {
+					info = cached;
+				} else {
+		        	infoCache.put(key, info);
+				}
+
 		        GL11.glPushMatrix();
 				{
 					GLBoolTracker blend = new GLBoolTracker(GL11.GL_BLEND, true);
@@ -581,10 +607,10 @@ public class ClientProxy extends CommonProxy {
 	                double d0 = player.lastTickPosX + (player.posX - player.lastTickPosX) * event.getPartialTicks();
 	                double d1 = player.lastTickPosY + (player.posY - player.lastTickPosY) * event.getPartialTicks();
 	                double d2 = player.lastTickPosZ + (player.posZ - player.lastTickPosZ) * event.getPartialTicks();
-	                GL11.glTranslated(-d0, -d1, -d2);
-	                
-	                GL11.glTranslated(pos.getX(), pos.getY(), pos.getZ());
-	                
+
+					Vec3d placementPosition = info.placementInfo.placementPosition;
+	                GL11.glTranslated(placementPosition.x-d0, placementPosition.y-d1, placementPosition.z-d2);
+
 	                RailRenderUtil.render(info, true);
 
 					blend.restore();
@@ -606,12 +632,9 @@ public class ClientProxy extends CommonProxy {
 	                double d0 = player.lastTickPosX + (player.posX - player.lastTickPosX) * event.getPartialTicks();
 	                double d1 = player.lastTickPosY + (player.posY - player.lastTickPosY) * event.getPartialTicks();
 	                double d2 = player.lastTickPosZ + (player.posZ - player.lastTickPosZ) * event.getPartialTicks();
-	                GL11.glTranslated(-d0, -d1, -d2);
 	                
-	                GL11.glTranslated(pos.getX()+0.5, pos.getY()+0.5, pos.getZ()+0.5);
+	                GL11.glTranslated(pos.getX()-d0+0.5, pos.getY()-d1+0.5, pos.getZ()-d2+0.5);
 	                
-	                if (Math.random() < 0.1) {
-	                }
 	                GL11.glRotated(-(int)(((player.getRotationYawHead()%360+360)%360+45) / 90) * 90, 0, 1, 0);
 	                
 	                GL11.glTranslated(-0.5, -0.5, -0.5);
@@ -680,7 +703,11 @@ public class ClientProxy extends CommonProxy {
 			ISound snd = sndCache.get(sndCacheId);
 			EntityMoveableRollingStock stock = ((EntityMoveableRollingStock)event.getEntity());
 			float adjust = (float) Math.abs(stock.getCurrentSpeed().metric()) / 300;
-			snd.setPitch((float) ((adjust + 0.7)/stock.gauge.scale()));
+			if(stock.getDefinition().shouldScalePitch()) {
+				snd.setPitch((float) ((adjust + 0.7)/stock.gauge.scale()));
+			} else {
+				snd.setPitch((float) ((adjust + 0.7)));
+			}
 			snd.setVolume(0.01f + adjust);
 			snd.play(event.getEntity().getPositionVector());
 	    	sndCacheId++;
@@ -724,8 +751,6 @@ public class ClientProxy extends CommonProxy {
 		}
 		
 		if (world != null) {
-			StockRenderCache.tryPrime();
-			
 			if (magical == null) {
 				magical = new MagicEntity(world);
 				world.spawnEntity(magical);
@@ -764,7 +789,38 @@ public class ClientProxy extends CommonProxy {
 	public int getRenderDistance() {
 		return Minecraft.getMinecraft().gameSettings.renderDistanceChunks;
 	}
-	
+
+	@Override
+	public void addPreview(int dimension, TileRailPreview preview) {
+		if (!previews.containsKey(dimension)) {
+			previews.put(dimension, new ExpireableList<BlockPos, TileRailPreview>() {
+				@Override
+				public int lifespan() {
+					return 2;
+				}
+				@Override
+				public boolean sliding() {
+					return false;
+				}
+			});
+		}
+		ExpireableList<BlockPos, TileRailPreview> pvs = previews.get(dimension);
+		TileRailPreview curr = pvs.get(preview.getPos());
+		if (curr != null) {
+			if (curr.writeToNBT(new NBTTagCompound()).equals(preview.writeToNBT(new NBTTagCompound()))) {
+				preview = curr;
+			}
+		}
+		previews.get(dimension).put(preview.getPos(), preview);
+	}
+	public Collection<TileRailPreview> getPreviews() {
+		ExpireableList<BlockPos, TileRailPreview> pvs = previews.get(Minecraft.getMinecraft().player.dimension);
+		if (pvs != null) {
+			return pvs.values();
+		}
+		return null;
+	}
+
 	@SubscribeEvent
 	public static void configChanged(OnConfigChangedEvent event) {
 		if (event.getModID().equals(ImmersiveRailroading.MODID)) {
