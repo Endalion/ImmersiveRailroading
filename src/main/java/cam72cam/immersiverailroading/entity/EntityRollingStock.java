@@ -96,7 +96,7 @@ public abstract class EntityRollingStock extends EntityLockableRollingStock impl
 		nbt.setString("tag", tag);
 
 		if (this.texture != null) {
-			nbttagcompound.setString("texture", texture);
+			nbt.setString("texture", texture);
 		}
 	}
 
