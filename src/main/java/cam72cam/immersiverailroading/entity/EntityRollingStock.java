@@ -127,7 +127,7 @@ public abstract class EntityRollingStock extends EntityLockableRollingStock impl
 	
 	@Override
 	public boolean processInitialInteract(EntityPlayer player, EnumHand hand) {
-		if (player.getHeldItem(hand).getItem() == IRItems.ITEM_PAINT_BRUSH) {
+		if (player.getHeldItem(hand).getItem() == IRItems.ITEM_PAINT_BRUSH && hasPermission(player)) {
 			List<String> texNames = new ArrayList<String>(this.getDefinition().textureNames.keySet());
 			if (texNames.size() > 1) {
 				int idx = texNames.indexOf(this.texture);

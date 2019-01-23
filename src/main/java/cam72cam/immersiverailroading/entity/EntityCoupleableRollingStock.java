@@ -154,7 +154,7 @@ public abstract class EntityCoupleableRollingStock extends EntityMoveableRolling
 	
 	@Override
 	public boolean processInitialInteract(EntityPlayer player, EnumHand hand) {
-		if (player.getHeldItem(hand).getItem() == IRItems.ITEM_HOOK) {
+		if (player.getHeldItem(hand).getItem() == IRItems.ITEM_HOOK && hasPermission(player)) {
 			CouplerType coupler = CouplerType.FRONT;
 			if (this.getCouplerPosition(CouplerType.FRONT).distanceTo(player.getPositionVector()) > this.getCouplerPosition(CouplerType.BACK).distanceTo(player.getPositionVector())) {
 				coupler = CouplerType.BACK;

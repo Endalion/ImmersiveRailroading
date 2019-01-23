@@ -132,7 +132,7 @@ public abstract class Freight extends EntityCoupleableRollingStock {
 		}
 		
 		// I don't believe the positions are used
-		if (guiType() != null) {
+		if (guiType() != null && hasPermission(player)) {
 			player.openGui(ImmersiveRailroading.instance, guiType().ordinal(), world, this.getEntityId(), 0, 0);
 			return true;
 		}
