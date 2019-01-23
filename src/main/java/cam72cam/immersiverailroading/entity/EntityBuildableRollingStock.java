@@ -13,9 +13,9 @@ import cam72cam.immersiverailroading.items.nbt.ItemGauge;
 import cam72cam.immersiverailroading.items.nbt.ItemPlateType;
 import cam72cam.immersiverailroading.items.nbt.ItemTextureVariant;
 import cam72cam.immersiverailroading.library.AssemblyStep;
+import cam72cam.immersiverailroading.library.ChatText;
 import cam72cam.immersiverailroading.library.ItemComponentType;
 import cam72cam.immersiverailroading.library.StockDeathType;
-import cam72cam.immersiverailroading.library.ChatText;
 import cam72cam.immersiverailroading.net.BuildableStockSyncPacket;
 import cam72cam.immersiverailroading.util.BufferUtil;
 import io.netty.buffer.ByteBuf;
@@ -390,7 +390,7 @@ public class EntityBuildableRollingStock extends EntityRollingStock {
 		if (player.getHeldItem(hand).getItem() == IRItems.ITEM_LARGE_WRENCH || player.getHeldItem(hand).getItem() == IRItems.ITEM_ROLLING_STOCK_COMPONENT) {
 			if (!player.isSneaking()) {
 				addNextComponent(player);
-			} else {
+			} else if (hasPermission(player)) {
 				this.removeNextComponent(player);
 			}
 			return true;

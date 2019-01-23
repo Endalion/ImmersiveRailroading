@@ -338,6 +338,10 @@ public class ClientProxy extends CommonProxy {
 		
 		ModelLoader.setCustomModelResourceLocation(IRItems.ITEM_RADIO_CONTROL_CARD, 0,
 				new ModelResourceLocation(IRItems.ITEM_RADIO_CONTROL_CARD.getRegistryName(), ""));
+
+		ModelLoader.setCustomModelResourceLocation(IRItems.ITEM_LOCK_KEY, 0, 
+				new ModelResourceLocation(IRItems.ITEM_LOCK_KEY.getRegistryName(), ""));
+
 	}
 	
 	public static final class StockIcon extends TextureAtlasSprite

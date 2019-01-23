@@ -1,12 +1,5 @@
 package cam72cam.immersiverailroading.entity;
 
-import net.minecraftforge.fml.common.network.NetworkRegistry.TargetPoint;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.registry.IEntityAdditionalSpawnData;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
-
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -30,18 +23,19 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.EnumHand;
 import net.minecraft.world.World;
+import net.minecraftforge.fml.common.network.NetworkRegistry.TargetPoint;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import net.minecraftforge.fml.common.registry.IEntityAdditionalSpawnData;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-public abstract class EntityRollingStock extends Entity implements IEntityAdditionalSpawnData {
-	
-	protected String defID;
+public abstract class EntityRollingStock extends EntityLockableRollingStock implements IEntityAdditionalSpawnData {	
 	public Gauge gauge;
 	public String tag = "";
 	public String texture;
 
 	public EntityRollingStock(World world, String defID) {
-		super(world);
-
-		this.defID = defID;
+		super(world, defID);
 
 		super.preventEntitySpawning = true;
 		super.isImmuneToFire = true;
@@ -53,24 +47,7 @@ public abstract class EntityRollingStock extends Entity implements IEntityAdditi
 	public String getName() {
 		return this.getDefinition().name();
 	}
-
-	public EntityRollingStockDefinition getDefinition() {
-		return this.getDefinition(EntityRollingStockDefinition.class);
-	}
-	public <T extends EntityRollingStockDefinition> T getDefinition(Class<T> type) {
-		EntityRollingStockDefinition def = DefinitionManager.getDefinition(defID);
-		if (def == null) {
-			try {
-				return type.getConstructor(String.class, JsonObject.class).newInstance(defID, (JsonObject)null);
-			} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException
-					| SecurityException e) {
-				e.printStackTrace();
-				return null;
-			}
-		} else {
-			return type.cast(def);
-		}
-	}
+	
 	public String getDefinitionID() {
 		return this.defID;
 	}
@@ -112,29 +89,31 @@ public abstract class EntityRollingStock extends Entity implements IEntityAdditi
 	}
 
 	@Override
-	protected void writeEntityToNBT(NBTTagCompound nbttagcompound) {
-		nbttagcompound.setString("defID", defID);
-		nbttagcompound.setDouble("gauge", gauge.value());
-		nbttagcompound.setString("tag", tag);
-		
+	protected void writeEntityToNBT(NBTTagCompound nbt) {
+		super.writeEntityToNBT(nbt);
+		nbt.setString("defID", defID);
+		nbt.setDouble("gauge", gauge.value());
+		nbt.setString("tag", tag);
+
 		if (this.texture != null) {
 			nbttagcompound.setString("texture", texture);
 		}
 	}
 
 	@Override
-	protected void readEntityFromNBT(NBTTagCompound nbttagcompound) {
-		defID = nbttagcompound.getString("defID");
-		if (nbttagcompound.hasKey("gauge")) {
-			gauge = Gauge.from(nbttagcompound.getDouble("gauge"));
+	protected void readEntityFromNBT(NBTTagCompound nbt) {
+		super.readEntityFromNBT(nbt);
+		defID = nbt.getString("defID");
+		if (nbt.hasKey("gauge")) {
+			gauge = Gauge.from(nbt.getDouble("gauge"));
 		} else {
 			gauge = Gauge.from(Gauge.STANDARD);
 		}
 		
-		tag = nbttagcompound.getString("tag");
+		tag = nbt.getString("tag");
 		
-		if (nbttagcompound.hasKey("texture")) {
-			texture = nbttagcompound.getString("texture");
+		if (nbt.hasKey("texture")) {
+			texture = nbt.getString("texture");
 		}
 	}
 
@@ -158,7 +137,7 @@ public abstract class EntityRollingStock extends Entity implements IEntityAdditi
 				return true;
 			}
 		}
-		return false;
+		return super.processInitialInteract(player, hand);
 	}
 
 	@Override
@@ -189,7 +168,7 @@ public abstract class EntityRollingStock extends Entity implements IEntityAdditi
 		
 		if (damagesource.getTrueSource() instanceof EntityPlayer && !damagesource.isProjectile()) {
 			EntityPlayer player = (EntityPlayer) damagesource.getTrueSource();
-			if (player.isSneaking()) {
+			if (player.isSneaking() && canRide(player)) {
 				if (!this.isDead) {
 					this.onDeath(StockDeathType.PLAYER);
 				}

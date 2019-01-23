@@ -41,6 +41,10 @@ public enum GuiText {
 	WEIGHT_TOOLTIP("stock.weight"),
 	TEXTURE_TOOLTIP("stock.texture"),
 	
+	LABEL_KEY_1("label.key_1"),
+	LABEL_KEY_2("label.key_2"),
+	LABEL_KEY_3("label.key_3"),
+	
 	NONE("none"),
 	;
 	

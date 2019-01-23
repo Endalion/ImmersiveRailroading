@@ -31,6 +31,7 @@ public enum ChatText {
 	RADIO_UNLINK("radio.unlink"),
 	RADIO_NOLINK("radio.nolink"),
 	RADIO_CANT_LINK("radio.cant_link"),
+	CHANGE_STOCK_LOCK("stock.change_lock")
 	;
 	
 	private String value;
