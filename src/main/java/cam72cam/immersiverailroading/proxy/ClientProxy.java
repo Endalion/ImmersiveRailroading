@@ -24,6 +24,7 @@ import cam72cam.immersiverailroading.ImmersiveRailroading;
 import cam72cam.immersiverailroading.blocks.BlockRailBase;
 import cam72cam.immersiverailroading.entity.CarFreight;
 import cam72cam.immersiverailroading.entity.EntityMoveableRollingStock;
+import cam72cam.immersiverailroading.entity.EntityRailroadVillager;
 import cam72cam.immersiverailroading.entity.FreightTank;
 import cam72cam.immersiverailroading.entity.EntityRidableRollingStock;
 import cam72cam.immersiverailroading.entity.EntityRollingStock;
@@ -69,6 +70,7 @@ import cam72cam.immersiverailroading.render.entity.MagicEntityRender;
 import cam72cam.immersiverailroading.render.entity.MagicEntity;
 import cam72cam.immersiverailroading.render.entity.ParticleRender;
 import cam72cam.immersiverailroading.render.entity.RenderOverride;
+import cam72cam.immersiverailroading.render.entity.RenderRailroadVillager;
 import cam72cam.immersiverailroading.render.entity.StockEntityRender;
 import cam72cam.immersiverailroading.render.entity.StockModel;
 import cam72cam.immersiverailroading.render.rail.RailRenderUtil;
@@ -101,6 +103,7 @@ import net.minecraft.client.resources.SimpleReloadableResourceManager;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
@@ -278,6 +281,13 @@ public class ClientProxy extends CommonProxy {
 			return new MagicEntityRender(manager);
 		}
 	};
+	
+	public static final IRenderFactory<EntityRailroadVillager> RAILROAD_VILLAGER_RENDER = new IRenderFactory<EntityRailroadVillager>() {
+		@Override
+		public Render<? super EntityRailroadVillager> createRenderFor(RenderManager manager) {
+			return new RenderRailroadVillager(manager);
+		}
+	};
 
 	@SubscribeEvent
 	public static void registerEntities(RegistryEvent.Register<EntityEntry> event) {
@@ -287,6 +297,7 @@ public class ClientProxy extends CommonProxy {
 
 		RenderingRegistry.registerEntityRenderingHandler(EntitySmokeParticle.class, PARTICLE_RENDER);
 		RenderingRegistry.registerEntityRenderingHandler(MagicEntity.class, MAGIC_RENDER);
+		RenderingRegistry.registerEntityRenderingHandler(EntityRailroadVillager.class, RAILROAD_VILLAGER_RENDER);
 	}
 
 	@SubscribeEvent
@@ -338,6 +349,9 @@ public class ClientProxy extends CommonProxy {
 		
 		ModelLoader.setCustomModelResourceLocation(IRItems.ITEM_RADIO_CONTROL_CARD, 0,
 				new ModelResourceLocation(IRItems.ITEM_RADIO_CONTROL_CARD.getRegistryName(), ""));
+		
+		ModelLoader.setCustomModelResourceLocation(IRItems.ITEM_ORDER_SLIP, 0,
+				new ModelResourceLocation(Items.PAPER.getRegistryName(), ""));
 	}
 	
 	public static final class StockIcon extends TextureAtlasSprite

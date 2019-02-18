@@ -32,6 +32,7 @@ import cam72cam.immersiverailroading.entity.HandCar;
 import cam72cam.immersiverailroading.entity.Locomotive;
 import cam72cam.immersiverailroading.entity.LocomotiveDiesel;
 import cam72cam.immersiverailroading.entity.LocomotiveSteam;
+import cam72cam.immersiverailroading.entity.NpcConveyor;
 import cam72cam.immersiverailroading.entity.Tender;
 import cam72cam.immersiverailroading.gui.FreightContainer;
 import cam72cam.immersiverailroading.gui.SteamHammerContainer;
@@ -199,7 +200,8 @@ public abstract class CommonProxy implements IGuiHandler {
     	event.getRegistry().register(IRItems.ITEM_CONDUCTOR_WHISTLE);
     	event.getRegistry().register(IRItems.ITEM_PAINT_BRUSH);
     	event.getRegistry().register(IRItems.ITEM_GOLDEN_SPIKE);
-	event.getRegistry().register(IRItems.ITEM_RADIO_CONTROL_CARD);
+    	event.getRegistry().register(IRItems.ITEM_RADIO_CONTROL_CARD);
+		event.getRegistry().register(IRItems.ITEM_ORDER_SLIP);
     }
     
     @SubscribeEvent
@@ -209,6 +211,7 @@ public abstract class CommonProxy implements IGuiHandler {
         	lastEntityID ++;
         	EntityRegistry.registerModEntity(new ResourceLocation(ImmersiveRailroading.MODID, type.getSimpleName()), type, type.getSimpleName(), lastEntityID, ImmersiveRailroading.instance, ImmersiveRailroading.ENTITY_SYNC_DISTANCE, 20, false);	
     	}
+    	EntityRegistry.registerModEntity(new ResourceLocation(ImmersiveRailroading.MODID, NpcConveyor.class.getSimpleName()), NpcConveyor.class, NpcConveyor.class.getSimpleName(), ++lastEntityID, ImmersiveRailroading.instance, ImmersiveRailroading.ENTITY_SYNC_DISTANCE, 3, true);
     }
 	
 	@SubscribeEvent
