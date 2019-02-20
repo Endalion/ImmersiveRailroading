@@ -31,14 +31,6 @@ public class LayerHeldItemRailroadVillager implements LayerRenderer<EntityRailro
             GlStateManager.color(1.0F, 1.0F, 1.0F);
             GlStateManager.pushMatrix();
 
-            if (this.rrVillagerRenderer.getMainModel().isChild)
-            {
-                GlStateManager.translate(0.0F, 0.625F, 0.0F);
-                GlStateManager.rotate(-20.0F, -1.0F, 0.0F, 0.0F);
-                float f = 0.5F;
-                GlStateManager.scale(0.5F, 0.5F, 0.5F);
-            }
-
             GlStateManager.translate(-0.0625F, 0.53125F, 0.21875F);
             Item item = itemstack.getItem();
             Minecraft minecraft = Minecraft.getMinecraft();

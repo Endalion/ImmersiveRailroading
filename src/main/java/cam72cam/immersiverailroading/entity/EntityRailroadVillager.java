@@ -17,6 +17,7 @@ import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Items;
 import net.minecraft.init.SoundEvents;
+import net.minecraft.inventory.EntityEquipmentSlot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.DamageSource;
@@ -38,7 +39,8 @@ import net.minecraftforge.items.ItemStackHandler;
 
 public class EntityRailroadVillager extends EntityCreature {
 	
-    protected String OwnerID;
+    protected UUID OwnerID = new UUID(0,0);
+    public static final UUID EMPTYUUID = new UUID(0,0);
     protected UUID RailroadUUID;
     public boolean followingOwner;
     
@@ -50,39 +52,44 @@ public class EntityRailroadVillager extends EntityCreature {
 	public EntityRailroadVillager(World worldIn) {
 		super(worldIn);
         this.setSize(0.6F, 1.95F);
-        //this.setCanPickUpLoot(true);
 	}
 	
 	@Override
 	public void writeEntityToNBT(NBTTagCompound nbttagcompound) {
 		super.writeEntityToNBT(nbttagcompound);
-		nbttagcompound.setTag("items", handInventory.serializeNBT());
-		if (OwnerID != null)nbttagcompound.setString("owner", OwnerID);
+		nbttagcompound.setTag("HandItems", handInventory.serializeNBT());
+		//ImmersiveRailroading.info("Write NBT was %s", nbttagcompound.getUniqueId("RailOwner"));
+		nbttagcompound.setUniqueId("RailOwner", this.OwnerID);
+		//ImmersiveRailroading.info("Write NBT now %s", nbttagcompound.getUniqueId("RailOwner"));
 	}
 
 	@Override
 	public void readEntityFromNBT(NBTTagCompound nbttagcompound) {
 		super.readEntityFromNBT(nbttagcompound);
-		
-		if (nbttagcompound.hasKey("items")) {
+		if (nbttagcompound.hasKey("HandItems")) {
 			ItemStackHandler temp = new ItemStackHandler();
-			temp.deserializeNBT((NBTTagCompound) nbttagcompound.getTag("items"));
+			temp.deserializeNBT((NBTTagCompound) nbttagcompound.getTag("HandItems"));
 			handInventory.setStackInSlot(0, temp.getStackInSlot(0));
 		}
-		
-		if (nbttagcompound.hasKey("owner"))OwnerID = nbttagcompound.getString("owner");
+		//ImmersiveRailroading.info("Read NBT was %s", this.OwnerID);
+		UUID tempUUID = nbttagcompound.getUniqueId("RailOwner");
+		if (tempUUID != null && !tempUUID.equals(EMPTYUUID))this.OwnerID = nbttagcompound.getUniqueId("RailOwner");
+		//ImmersiveRailroading.info("Read NBT now %s", this.OwnerID);
 	}
     
     @Override
 	protected boolean processInteract(EntityPlayer player, EnumHand hand) {
-    	if (OwnerID == null && player.getHeldItem(hand).getItem() == Items.EMERALD) {
-    		OwnerID = player.getGameProfile().getName();
+    	if (!this.world.isRemote && this.OwnerID.equals(EMPTYUUID) && player.getHeldItemMainhand().getItem() == Items.EMERALD) {
     		player.getHeldItemMainhand().shrink(1);
+    		this.setCustomNameTag("Porter [" + player.getName() + "]");
+    		OwnerID = player.getGameProfile().getId();
+    		return true;
     	}
-    	else if(player.getGameProfile().getName() == OwnerID && player.isSneaking()) {
-    		followingOwner = true;
+    	else if(this.isOwner(player) && player.isSneaking()) {
+    		//followingOwner = true;
+    		return true;
     	}
-		return super.processInteract(player, hand);
+		return false;
 	}
 
 
@@ -127,11 +134,13 @@ public class EntityRailroadVillager extends EntityCreature {
         return p_190672_2_;
     }
     
+    @Override
     public float getBlockPathWeight(BlockPos pos)
     {
         return BlockUtil.isIRRail(world, pos) ? -10.0F : 0.0F;
     }
     
+    @Override
     protected boolean canDespawn()
     {
         return false;
@@ -142,6 +151,7 @@ public class EntityRailroadVillager extends EntityCreature {
     	return true;
     }
     
+    @Override
     public boolean canBeLeashedTo(EntityPlayer player)
     {
         return false;
@@ -159,12 +169,12 @@ public class EntityRailroadVillager extends EntityCreature {
 		return new BlockPos(stock.getPositionVector().add(delta));
     }
     
-    public ItemStackHandler getHandInventory() {
-    	return this.handInventory;
+    public UUID getOwner() {
+    	return OwnerID;
     }
     
-    public String getOwner() {
-    	return OwnerID;
+    public boolean isOwner(EntityPlayer player) {
+    	return player.getGameProfile().getId().equals(OwnerID);
     }
     
 	public void transferAllItems(IItemHandler source, IItemHandler dest, int numstacks) {
@@ -174,20 +184,10 @@ public class EntityRailroadVillager extends EntityCreature {
 				continue;
 			}
 			int orig_count = stack.getCount();
-			ImmersiveRailroading.info("%s in src", stack.toString());
 			stack = ItemHandlerHelper.insertItem(dest, stack, false);
-			for (int i = 0; i < dest.getSlots(); i++) {
-				ImmersiveRailroading.info("initial: %s ins to dest", dest.getStackInSlot(i).toString());
-			}
-			ImmersiveRailroading.info("%s left from ins dest", stack.toString());
 			if (stack.getCount() != orig_count) {
 				source.extractItem(slot, orig_count - stack.getCount(), false);
-				ImmersiveRailroading.info("mid: %s ins to dest", dest.getStackInSlot(0).toString());
-				ImmersiveRailroading.info("Extracted %d from src", orig_count - stack.getCount());
 				numstacks--;
-			}
-			for (int i = 0; i < dest.getSlots(); i++) {
-				ImmersiveRailroading.info("final: %s ins to dest", dest.getStackInSlot(i).toString());
 			}
 			if (numstacks <= 0) {
 				return;
@@ -196,15 +196,28 @@ public class EntityRailroadVillager extends EntityCreature {
 	}
 	
 	@Override
+	public ItemStack getItemStackFromSlot(EntityEquipmentSlot slot)
+	{
+		if (slot == EntityEquipmentSlot.HEAD) {
+			return getHeldItemMainhand();
+		}
+		return ItemStack.EMPTY;
+	}
+	
+	@Override
 	public ItemStack getHeldItemMainhand()
     {
-		return this.getHandInventory().getStackInSlot(0).copy();
+		return this.handInventory.getStackInSlot(0).copy();
     }
 	
 	@Override
 	public void onDeath(DamageSource cause) {
-        this.world.spawnEntity(new EntityItem(this.world, this.posX, this.posY, this.posZ, this.getHandInventory().getStackInSlot(0).copy()));
 		super.onDeath(cause);
+		if (world.isRemote) {
+			return;
+		}
+		
+        this.world.spawnEntity(new EntityItem(this.world, this.posX, this.posY, this.posZ, this.getHeldItemMainhand().copy()));
 	}
     
     @Override
@@ -224,6 +237,7 @@ public class EntityRailroadVillager extends EntityCreature {
         return super.getCapability(capability, facing);
     }
 	
+	@Override
 	public boolean attackEntityAsMob(Entity entityIn)
     {
         float f = (float)this.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).getAttributeValue();

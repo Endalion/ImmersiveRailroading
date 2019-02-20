@@ -24,7 +24,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.CapabilityItemHandler;
 
-public class ItemOrderSlip extends Item{
+public class ItemOrderSlip extends Item {
 	public static final String NAME = "item_order_slip";
 
 	public ItemOrderSlip() {
