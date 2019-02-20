@@ -5,21 +5,25 @@ import cam72cam.immersiverailroading.entity.NpcConveyor;
 import cam72cam.immersiverailroading.render.entity.RenderRailroadVillager;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
+import net.minecraft.client.renderer.entity.RenderLivingBase;
 import net.minecraft.client.renderer.entity.layers.LayerRenderer;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumBlockRenderType;
+import net.minecraft.util.EnumHandSide;
 
 public class LayerHeldItemRailroadVillager implements LayerRenderer<EntityRailroadVillager>
 {
-	private final RenderRailroadVillager rrVillagerRenderer;
+    protected final RenderRailroadVillager livingEntityRenderer;
 
-    public LayerHeldItemRailroadVillager(RenderRailroadVillager rrVillagerRendererIn)
+    public LayerHeldItemRailroadVillager(RenderRailroadVillager livingEntityRendererIn)
     {
-        this.rrVillagerRenderer = rrVillagerRendererIn;
+        this.livingEntityRenderer = livingEntityRendererIn;
     }
 
     public void doRenderLayer(EntityRailroadVillager entitylivingbaseIn, float limbSwing, float limbSwingAmount, float partialTicks, float ageInTicks, float netHeadYaw, float headPitch, float scale)
@@ -28,58 +32,35 @@ public class LayerHeldItemRailroadVillager implements LayerRenderer<EntityRailro
 
         if (!itemstack.isEmpty())
         {
-            GlStateManager.color(1.0F, 1.0F, 1.0F);
             GlStateManager.pushMatrix();
 
-            GlStateManager.translate(-0.0625F, 0.53125F, 0.21875F);
-            Item item = itemstack.getItem();
-            Minecraft minecraft = Minecraft.getMinecraft();
-
-            if (Block.getBlockFromItem(item).getDefaultState().getRenderType() == EnumBlockRenderType.ENTITYBLOCK_ANIMATED)
+            if (this.livingEntityRenderer.getMainModel().isChild)
             {
-                GlStateManager.translate(0.0F, 0.0625F, -0.25F);
-                GlStateManager.rotate(30.0F, 1.0F, 0.0F, 0.0F);
-                GlStateManager.rotate(-5.0F, 0.0F, 1.0F, 0.0F);
-                float f1 = 0.375F;
-                GlStateManager.scale(0.375F, -0.375F, 0.375F);
-            }
-            else if (item == Items.BOW)
-            {
-                GlStateManager.translate(0.0F, 0.125F, -0.125F);
-                GlStateManager.rotate(-45.0F, 0.0F, 1.0F, 0.0F);
-                float f2 = 0.625F;
-                GlStateManager.scale(0.625F, -0.625F, 0.625F);
-                GlStateManager.rotate(-100.0F, 1.0F, 0.0F, 0.0F);
-                GlStateManager.rotate(-20.0F, 0.0F, 1.0F, 0.0F);
-            }
-            else if (item.isFull3D())
-            {
-                if (item.shouldRotateAroundWhenRendering())
-                {
-                    GlStateManager.rotate(180.0F, 0.0F, 0.0F, 1.0F);
-                    GlStateManager.translate(0.0F, -0.0625F, 0.0F);
-                }
-
-                this.rrVillagerRenderer.transformHeldFull3DItemLayer();
-                GlStateManager.translate(0.0625F, -0.125F, 0.0F);
-                float f3 = 0.625F;
-                GlStateManager.scale(0.625F, -0.625F, 0.625F);
-                GlStateManager.rotate(0.0F, 1.0F, 0.0F, 0.0F);
-                GlStateManager.rotate(0.0F, 0.0F, 1.0F, 0.0F);
-            }
-            else
-            {
-                GlStateManager.translate(0.1875F, 0.1875F, 0.0F);
-                float f4 = 0.875F;
-                GlStateManager.scale(0.875F, 0.875F, 0.875F);
-                GlStateManager.rotate(-20.0F, 0.0F, 0.0F, 1.0F);
-                GlStateManager.rotate(-60.0F, 1.0F, 0.0F, 0.0F);
-                GlStateManager.rotate(-30.0F, 0.0F, 0.0F, 1.0F);
+                float f = 0.5F;
+                GlStateManager.translate(0.0F, 0.75F, 0.0F);
+                GlStateManager.scale(0.5F, 0.5F, 0.5F);
             }
 
-            GlStateManager.rotate(-15.0F, 1.0F, 0.0F, 0.0F);
-            GlStateManager.rotate(40.0F, 0.0F, 0.0F, 1.0F);
-            minecraft.getItemRenderer().renderItem(entitylivingbaseIn, itemstack, ItemCameraTransforms.TransformType.THIRD_PERSON_RIGHT_HAND);
+            this.renderHeldItem(entitylivingbaseIn, itemstack, ItemCameraTransforms.TransformType.THIRD_PERSON_RIGHT_HAND, EnumHandSide.RIGHT);
+            GlStateManager.popMatrix();
+        }
+    }
+
+    private void renderHeldItem(EntityLivingBase p_188358_1_, ItemStack p_188358_2_, ItemCameraTransforms.TransformType p_188358_3_, EnumHandSide handSide)
+    {
+        if (!p_188358_2_.isEmpty())
+        {
+            GlStateManager.pushMatrix();
+
+            if (p_188358_1_.isSneaking())
+            {
+                GlStateManager.translate(0.0F, 0.2F, 0.0F);
+            }
+            GlStateManager.rotate(-135.0F, 1.0F, 0.0F, 0.0F);
+            GlStateManager.rotate(180.0F, 0.0F, 1.0F, 0.0F);
+            //Original was GlStateManager.translate(1.0F / 16.0F, 0.125F, -0.625F);
+            GlStateManager.translate(-0.7F / 16.0F, 0.0F, -0.50F);
+            Minecraft.getMinecraft().getItemRenderer().renderItem(p_188358_1_, p_188358_2_, p_188358_3_);
             GlStateManager.popMatrix();
         }
     }

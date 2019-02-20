@@ -7,6 +7,7 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.entity.RenderLiving;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.entity.layers.LayerCustomHead;
+import net.minecraft.client.renderer.entity.layers.LayerHeldItem;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -24,8 +25,7 @@ public class RenderRailroadVillager extends RenderLiving<EntityRailroadVillager>
     public RenderRailroadVillager(RenderManager renderManagerIn)
     {
         super(renderManagerIn, new ModelVillager(0.0F), 0.5F);
-        //this.addLayer(new LayerHeldItemRailroadVillager(this));
-        this.addLayer(new LayerCustomHead(this.getMainModel().villagerHead));
+        this.addLayer(new LayerHeldItemRailroadVillager(this));
     }
 
     public ModelVillager getMainModel()

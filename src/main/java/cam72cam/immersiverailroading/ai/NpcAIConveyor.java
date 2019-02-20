@@ -134,7 +134,7 @@ public class NpcAIConveyor extends EntityAIRailroadVillager<NpcConveyor> {
         	}
     		updateTimer = 20;
     	}
-        if (!getIsAboveDestination() || lastDestination != pathDestination) {
+        if (!canInteractDestination() || lastDestination != pathDestination) {
         	moveToPosition(pathDestination);
         }
     }

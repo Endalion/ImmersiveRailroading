@@ -19,8 +19,14 @@ import net.minecraft.entity.monster.EntityEvoker;
 import net.minecraft.entity.monster.EntityVex;
 import net.minecraft.entity.monster.EntityVindicator;
 import net.minecraft.entity.monster.EntityZombie;
+import net.minecraft.entity.passive.EntityVillager;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.datasync.DataParameter;
+import net.minecraft.network.datasync.DataSerializers;
+import net.minecraft.network.datasync.EntityDataManager;
 import net.minecraft.pathfinding.PathNavigateGround;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
@@ -71,33 +77,33 @@ public class NpcConveyor extends EntityRailroadVillager {
 	
 	@Override
 	public boolean processInteract(EntityPlayer player, EnumHand hand) {
-    	ImmersiveRailroading.info("I am on %s, I have %s", this.world.isRemote, this.getHeldItemMainhand().toString());
-		ImmersiveRailroading.info("ext %s , %s", player.getGameProfile().getId(), this.OwnerID);
+    	//ImmersiveRailroading.info("I am on %s, I have %s", this.world.isRemote, this.getHeldItemMainhand().toString());
+		//ImmersiveRailroading.info("ext %s , %s", player.getGameProfile().getId(), this.OwnerID);
 		if (this.world.isRemote || !this.isOwner(player)) {
-			return super.processInteract(player, hand);
+			super.processInteract(player, hand);
 		}
-		
-		if (player.getHeldItem(hand).getItem() == IRItems.ITEM_HOOK) {
-			return true;
-		}
-		else if(player.getHeldItem(hand).getItem() == IRItems.ITEM_ORDER_SLIP) {
-			NBTTagCompound nbt = player.getHeldItem(hand).getTagCompound();
-			if (nbt == null) { 
-				player.getHeldItem(hand).setTagCompound(new NBTTagCompound());
-				nbt = player.getHeldItem(hand).getTagCompound();
+		if (this.isOwner(player)) {
+			if (player.getHeldItem(hand).getItem() == IRItems.ITEM_HOOK) {
+				return true;
+			} else if (player.getHeldItem(hand).getItem() == IRItems.ITEM_ORDER_SLIP) {
+				NBTTagCompound nbt = player.getHeldItem(hand).getTagCompound();
+				if (nbt == null) {
+					player.getHeldItem(hand).setTagCompound(new NBTTagCompound());
+					nbt = player.getHeldItem(hand).getTagCompound();
+				}
+				if (nbt.hasKey("inventory")) {
+					BlockPos pos = BlockPos.fromLong(nbt.getLong("inventory"));
+					this.inventoryPosition = pos;
+				}
+				if (nbt.hasKey("stock")) {
+					BlockPos pos = BlockPos.fromLong(nbt.getLong("stock"));
+					this.tracksidePosition = pos;
+				}
+				if (nbt.hasKey("direction")) {
+					this.unloadDirection = nbt.getBoolean("direction");
+				}
+				return true;
 			}
-			if (nbt.hasKey("inventory")) {
-				BlockPos pos = BlockPos.fromLong(nbt.getLong("inventory"));
-				this.inventoryPosition = pos;
-			}
-			if (nbt.hasKey("stock")) {
-				BlockPos pos = BlockPos.fromLong(nbt.getLong("stock"));
-				this.tracksidePosition = pos;
-			}
-			if (nbt.hasKey("direction")) {
-				this.unloadDirection = nbt.getBoolean("direction");
-			}
-			return true;
 		}
 		
 		return false;
