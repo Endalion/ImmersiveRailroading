@@ -33,7 +33,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 
-public class NpcConveyor extends EntityRailroadVillager {
+public class NPCPorter extends EntityRailroadVillager {
 
 	public Freight targetFreight;
 	public BlockPos inventoryPosition;
@@ -42,7 +42,7 @@ public class NpcConveyor extends EntityRailroadVillager {
 	
 	private int freightUpdateTimer = 0;
 	
-	public NpcConveyor(World worldIn) {
+	public NPCPorter(World worldIn) {
 		super(worldIn);
 		((PathNavigateGround)this.getNavigator()).setBreakDoors(true);
 	}
@@ -111,13 +111,13 @@ public class NpcConveyor extends EntityRailroadVillager {
 	
 	@Override
 	public void onUpdate() {
-		if(tracksidePosition == null) {
+		if (tracksidePosition == null) {
 			super.onUpdate();
 			return;
 		}
 		freightUpdateTimer--;
-		if(freightUpdateTimer <= 0) {
-			if(targetFreight == null) {
+		if (freightUpdateTimer <= 0) {
+			if (targetFreight == null) {
 				List<Freight> nearBy = world.getEntities(Freight.class, new Predicate<Freight>() {
 					@Override
 					public boolean apply(@Nullable Freight entity) {
@@ -129,7 +129,7 @@ public class NpcConveyor extends EntityRailroadVillager {
 							return false;
 						}
 
-						if (entity.getDistanceSq(NpcConveyor.this.tracksidePosition) * 4 > entity.getDefinition().getLength(entity.gauge) * entity.getDefinition().getLength(entity.gauge)) {
+						if (entity.getDistanceSq(NPCPorter.this.tracksidePosition) * 4 > entity.getDefinition().getLength(entity.gauge) * entity.getDefinition().getLength(entity.gauge)) {
 							return false;
 						}
 						
@@ -145,7 +145,7 @@ public class NpcConveyor extends EntityRailroadVillager {
 				}
 			} else {
 				double targetFreightLengthSq = targetFreight.getDefinition().getLength(targetFreight.gauge) * targetFreight.getDefinition().getLength(targetFreight.gauge);
-				if (targetFreight.getDistanceSq(NpcConveyor.this.tracksidePosition) * 4 > targetFreightLengthSq || targetFreight.getCurrentSpeed().metric()/ConfigDamage.entitySpeedDamage > 1 || targetFreight.isDead) {
+				if (targetFreight.getDistanceSq(NPCPorter.this.tracksidePosition) * 4 > targetFreightLengthSq || targetFreight.getCurrentSpeed().metric()/ConfigDamage.entitySpeedDamage > 1 || targetFreight.isDead) {
 					targetFreight = null;
 				}
 			}

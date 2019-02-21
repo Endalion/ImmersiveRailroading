@@ -2,22 +2,17 @@ package cam72cam.immersiverailroading.entity;
 
 import java.util.UUID;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import cam72cam.immersiverailroading.ImmersiveRailroading;
 import cam72cam.immersiverailroading.util.BlockUtil;
 import cam72cam.immersiverailroading.util.VecUtil;
-import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityCreature;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.IEntityLivingData;
-import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Items;
 import net.minecraft.init.SoundEvents;
-import net.minecraft.inventory.EntityEquipmentSlot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.datasync.DataParameter;
@@ -29,9 +24,7 @@ import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.SoundEvent;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.World;
 import net.minecraft.world.storage.loot.LootTableList;
 import net.minecraftforge.common.capabilities.Capability;
@@ -43,13 +36,13 @@ import net.minecraftforge.items.ItemStackHandler;
 public class EntityRailroadVillager extends EntityCreature {
 	
 	private static final DataParameter<ItemStack> CARRYING = EntityDataManager.<ItemStack>createKey(EntityRailroadVillager.class, DataSerializers.ITEM_STACK);
-    protected UUID OwnerID = new UUID(0,0);
     public static final UUID EMPTYUUID = new UUID(0,0);
-    protected UUID RailroadUUID;
+    @Nonnull
+    protected UUID OwnerID = EMPTYUUID;
     public boolean followingOwner;
     
-    private int professionLevel = 0;
-    private int railroadProfession = 0;
+    //private int professionLevel = 0;
+    //private int railroadProfession = 0;
     
 	protected ItemStackHandler handInventory = new ItemStackHandler(1){
         @Override
@@ -98,17 +91,17 @@ public class EntityRailroadVillager extends EntityCreature {
 	protected boolean processInteract(EntityPlayer player, EnumHand hand) {
     	if (!this.world.isRemote && this.OwnerID.equals(EMPTYUUID) && player.getHeldItemMainhand().getItem() == Items.EMERALD) {
     		player.getHeldItemMainhand().shrink(1);
+    		player.inventoryContainer.detectAndSendChanges();
     		this.setCustomNameTag("Porter [" + player.getName() + "]");
     		OwnerID = player.getGameProfile().getId();
     		return true;
     	}
-    	else if(this.isOwner(player) && player.isSneaking()) {
+    	else if (this.isOwner(player) && player.isSneaking()) {
     		//followingOwner = true;
     		return true;
     	}
 		return false;
 	}
-
 
 	@Override
 	public void onUpdate() {
@@ -166,15 +159,6 @@ public class EntityRailroadVillager extends EntityCreature {
             handInventory.setStackInSlot(0, dataManager.get(CARRYING));
         }
     }
-    
-	@Override
-	public ItemStack getItemStackFromSlot(EntityEquipmentSlot slot)
-	{
-		if (slot == EntityEquipmentSlot.HEAD) {
-			return getHeldItemMainhand();
-		}
-		return ItemStack.EMPTY;
-	}
 	
 	@Override
 	public ItemStack getHeldItemMainhand()
@@ -219,11 +203,6 @@ public class EntityRailroadVillager extends EntityCreature {
     protected boolean canDespawn()
     {
         return false;
-    }
-    
-    public boolean isPassive()
-    {
-    	return true;
     }
     
     @Override

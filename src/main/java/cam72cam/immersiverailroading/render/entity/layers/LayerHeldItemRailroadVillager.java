@@ -1,7 +1,7 @@
 package cam72cam.immersiverailroading.render.entity.layers;
 
 import cam72cam.immersiverailroading.entity.EntityRailroadVillager;
-import cam72cam.immersiverailroading.entity.NpcConveyor;
+import cam72cam.immersiverailroading.entity.NPCPorter;
 import cam72cam.immersiverailroading.render.entity.RenderRailroadVillager;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;

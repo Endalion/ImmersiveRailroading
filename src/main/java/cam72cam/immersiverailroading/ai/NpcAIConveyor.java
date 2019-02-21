@@ -1,6 +1,6 @@
 package cam72cam.immersiverailroading.ai;
 import cam72cam.immersiverailroading.ImmersiveRailroading;
-import cam72cam.immersiverailroading.entity.NpcConveyor;
+import cam72cam.immersiverailroading.entity.NPCPorter;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.SoundEvents;
 import net.minecraft.tileentity.TileEntity;
@@ -10,7 +10,7 @@ import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
 
-public class NpcAIConveyor extends EntityAIRailroadVillager<NpcConveyor> {
+public class NpcAIConveyor extends EntityAIRailroadVillager<NPCPorter> {
 
 	protected BlockPos pathDestination;
 	private int updateTimer = 0;
@@ -26,7 +26,7 @@ public class NpcAIConveyor extends EntityAIRailroadVillager<NpcConveyor> {
 	private Tasks currentTask = Tasks.IDLE;
 	
 	
-    public NpcAIConveyor(NpcConveyor npc, double speedIn, int length)
+    public NpcAIConveyor(NPCPorter npc, double speedIn, int length)
     {
     	super(npc);
         this.setMutexBits(5);
@@ -57,11 +57,11 @@ public class NpcAIConveyor extends EntityAIRailroadVillager<NpcConveyor> {
     	mid = npc.getCapability(item_cap, null);
     	
     	TileEntity targetTile = npc.world.getTileEntity(npc.inventoryPosition);
-		if(targetTile == null) {
+		if (targetTile == null) {
 			npc.inventoryPosition = null;
 			return;
 		}
-		if(!targetTile.hasCapability(item_cap, null)) {
+		if (!targetTile.hasCapability(item_cap, null)) {
 			npc.inventoryPosition = null;
 			return;
 		}
