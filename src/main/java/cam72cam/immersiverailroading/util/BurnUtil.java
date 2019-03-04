@@ -7,6 +7,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntityFurnace;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
+import net.minecraftforge.oredict.OreDictionary;
 
 public class BurnUtil {
 	
@@ -20,6 +21,20 @@ public class BurnUtil {
 		}
 		return 0;
 	}
+	
+	public static int getFissionTime(ItemStack stack) {
+		if (stack.isEmpty()) return 0;
+		if (ConfigBalance.nuclearFuels.containsKey(stack.getItem().getUnlocalizedName())) {
+			return ConfigBalance.nuclearFuels.get(stack.getItem().getUnlocalizedName());
+		}
+		for (int id : OreDictionary.getOreIDs(stack))
+		{
+			String oreName = OreDictionary.getOreName(id);
+			if (ConfigBalance.nuclearFuels.containsKey(oreName)) return ConfigBalance.nuclearFuels.get(oreName);
+		}
+		return 0;
+	}
+	
 	public static List<Fluid> burnableFluids() {
 		List<Fluid> values = new ArrayList<Fluid>();
 		for (String name : ConfigBalance.dieselFuels.keySet()) {

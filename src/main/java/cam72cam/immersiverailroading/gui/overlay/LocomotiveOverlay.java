@@ -6,6 +6,7 @@ import cam72cam.immersiverailroading.ConfigGraphics;
 import cam72cam.immersiverailroading.entity.HandCar;
 import cam72cam.immersiverailroading.entity.Locomotive;
 import cam72cam.immersiverailroading.entity.LocomotiveDiesel;
+import cam72cam.immersiverailroading.entity.LocomotiveNuclear;
 import cam72cam.immersiverailroading.entity.LocomotiveSteam;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -131,6 +132,10 @@ public class LocomotiveOverlay extends Gui {
 		if(loco instanceof LocomotiveDiesel) {
 			mc.renderEngine.bindTexture(OVERLAY_DIESEL_TEXTURE);
 			drawTexturedModalRect(bgPosX, bgPosY, 0, 0, 85, 85);
+		}
+		if(loco instanceof LocomotiveNuclear) {
+			mc.renderEngine.bindTexture(OVERLAY_STEAM_TEXTURE);
+			drawTexturedModalRect(bgPosX, bgPosY, 0, 0, 105, 85);
 		}
 		if(loco instanceof HandCar) {
 			mc.renderEngine.bindTexture(OVERLAY_HANDCAR_TEXTURE);

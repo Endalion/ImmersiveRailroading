@@ -31,6 +31,7 @@ import cam72cam.immersiverailroading.blocks.BlockRailBase;
 import cam72cam.immersiverailroading.entity.CarFreight;
 import cam72cam.immersiverailroading.entity.EntityMoveableRollingStock;
 import cam72cam.immersiverailroading.entity.FreightTank;
+import cam72cam.immersiverailroading.entity.LocomotiveNuclear;
 import cam72cam.immersiverailroading.entity.EntityRidableRollingStock;
 import cam72cam.immersiverailroading.entity.EntityRollingStock;
 import cam72cam.immersiverailroading.entity.EntitySmokeParticle;
@@ -39,6 +40,8 @@ import cam72cam.immersiverailroading.entity.Tender;
 import cam72cam.immersiverailroading.gui.CastingGUI;
 import cam72cam.immersiverailroading.gui.FreightContainer;
 import cam72cam.immersiverailroading.gui.FreightContainerGui;
+import cam72cam.immersiverailroading.gui.NuclearLocomotiveContainer;
+import cam72cam.immersiverailroading.gui.NuclearLocomotiveContainerGui;
 import cam72cam.immersiverailroading.gui.PlateRollerGUI;
 import cam72cam.immersiverailroading.gui.SteamHammerContainer;
 import cam72cam.immersiverailroading.gui.SteamHammerContainerGui;
@@ -51,6 +54,7 @@ import cam72cam.immersiverailroading.gui.TenderContainerGui;
 import cam72cam.immersiverailroading.gui.TrackGui;
 import cam72cam.immersiverailroading.gui.overlay.DieselLocomotiveOverlay;
 import cam72cam.immersiverailroading.gui.overlay.HandCarOverlay;
+import cam72cam.immersiverailroading.gui.overlay.NuclearLocomotiveOverlay;
 import cam72cam.immersiverailroading.gui.overlay.SteamLocomotiveOverlay;
 import cam72cam.immersiverailroading.items.nbt.ItemMultiblockType;
 import cam72cam.immersiverailroading.library.Gauge;
@@ -193,6 +197,9 @@ public class ClientProxy extends CommonProxy {
 		case STEAM_LOCOMOTIVE:
 			return new SteamLocomotiveContainerGui((LocomotiveSteam) world.getEntityByID(entityIDorPosX),
 					new SteamLocomotiveContainer(player.inventory, (LocomotiveSteam) world.getEntityByID(entityIDorPosX)));
+		case NUCLEAR_LOCOMOTIVE:
+			return new NuclearLocomotiveContainerGui((LocomotiveNuclear) world.getEntityByID(entityIDorPosX),
+					new NuclearLocomotiveContainer(player.inventory, (LocomotiveNuclear) world.getEntityByID(entityIDorPosX)));
 		case RAIL:
 			return new TrackGui();
 		case RAIL_PREVIEW:
@@ -572,6 +579,7 @@ public class ClientProxy extends CommonProxy {
 		if (event.getType() == ElementType.ALL) {
 			new SteamLocomotiveOverlay().draw();
 			new DieselLocomotiveOverlay().draw();
+			new NuclearLocomotiveOverlay().draw();
 			new HandCarOverlay().draw();
 		}
 	}

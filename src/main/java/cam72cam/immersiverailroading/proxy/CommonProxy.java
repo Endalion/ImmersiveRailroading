@@ -31,9 +31,11 @@ import cam72cam.immersiverailroading.entity.FreightTank;
 import cam72cam.immersiverailroading.entity.HandCar;
 import cam72cam.immersiverailroading.entity.Locomotive;
 import cam72cam.immersiverailroading.entity.LocomotiveDiesel;
+import cam72cam.immersiverailroading.entity.LocomotiveNuclear;
 import cam72cam.immersiverailroading.entity.LocomotiveSteam;
 import cam72cam.immersiverailroading.entity.Tender;
 import cam72cam.immersiverailroading.gui.FreightContainer;
+import cam72cam.immersiverailroading.gui.NuclearLocomotiveContainer;
 import cam72cam.immersiverailroading.gui.SteamHammerContainer;
 import cam72cam.immersiverailroading.gui.SteamLocomotiveContainer;
 import cam72cam.immersiverailroading.gui.TankContainer;
@@ -89,6 +91,7 @@ public abstract class CommonProxy implements IGuiHandler {
 	protected String configDir;
 	private static String cacheDir;
     static {
+    	entityClasses.add(LocomotiveNuclear.class);
     	entityClasses.add(LocomotiveSteam.class);
     	entityClasses.add(LocomotiveDiesel.class);
     	entityClasses.add(CarPassenger.class);
@@ -327,6 +330,8 @@ public abstract class CommonProxy implements IGuiHandler {
 			return new TenderContainer(player.inventory, (Tender) world.getEntityByID(entityIDorX));
 		case STEAM_LOCOMOTIVE:
 			return new SteamLocomotiveContainer(player.inventory, (LocomotiveSteam) world.getEntityByID(entityIDorX));
+		case NUCLEAR_LOCOMOTIVE:
+			return new NuclearLocomotiveContainer(player.inventory, (LocomotiveNuclear) world.getEntityByID(entityIDorX));
 		case STEAM_HAMMER:
 			TileMultiblock te = TileMultiblock.get(world, new BlockPos(entityIDorX, y, z));
 			if (te == null) {

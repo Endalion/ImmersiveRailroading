@@ -10,6 +10,7 @@ import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Config.Comment;
+import scala.Int;
 
 @net.minecraftforge.common.config.Config(modid = ImmersiveRailroading.MODID)
 public class Config {
@@ -87,14 +88,23 @@ public class Config {
 		@Comment("Steam Fuel Efficiency")
 		public static int locoSteamFuelEfficiency = 100;
 
+		@Comment("Nuclear Fuel Efficiency")
+		public static int locoNuclearFuelEfficiency = 100;
+		
 		@Comment("How fast the steam locomotive should heat up.  1 is real world (slow), 72 is scaled to minecraft time")
 		public static int locoHeatTimeScale = 72;
+		
+		@Comment("How fast the nuclear locomotive should heat up.  1 is real world (slow), 72 is scaled to minecraft time")
+		public static int fissionHeatTimeScale = 72;
 		
 		@Comment("How fast the diesel locomotive should heat up. 1 is real world (slow), 72 is scaled to minecraft time")
 		public static int dieselLocoHeatTimeScale = 72;
 
-		@Comment("How much water the locomotive should use")
+		@Comment("How much water the steam locomotive should use")
 		public static float locoWaterUsage = 10;
+		
+		@Comment("How much water the nuclear locomotive should use")
+		public static float nuclearWaterUsage = 1;
 
 		@Comment("How much you get payed per meter the villager traveled (default 1 emerald per km)")
 		public static double villagerPayoutPerMeter = 0.001;
@@ -137,6 +147,15 @@ public class Config {
 			
 			// Other
 			dieselFuels.put("olive_oil", 40);
+		};
+		
+		@Comment("Fuels for nuclear Locomotives, supports oredict and item name.")
+		public static Map<String, Integer> nuclearFuels = new HashMap<String, Integer>();
+		static {
+			nuclearFuels.clear();
+			// Oredict
+			nuclearFuels.put("ingotUranium", 52560000);
+			nuclearFuels.put("ingotPlutonium", 928122000);	//HAHAHAHA- THIS IS OUT OF INT MAX RANGE (9281220000)
 		};
 		
 		@Comment("Water Substitutes")

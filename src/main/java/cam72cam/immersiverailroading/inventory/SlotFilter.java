@@ -9,6 +9,7 @@ import net.minecraftforge.fluids.FluidUtil;
 public interface SlotFilter extends Function<ItemStack, Boolean> {
 	public static final SlotFilter FLUID_CONTAINER = (ItemStack stack) -> FluidUtil.getFluidHandler(stack.copy()) != null;
 	public static final SlotFilter BURNABLE = (ItemStack stack) -> BurnUtil.getBurnTime(stack) != 0;
+	public static final SlotFilter FISSION = (ItemStack stack) -> BurnUtil.getFissionTime(stack) != 0;
 	public static final SlotFilter NONE = ItemStack -> false;
 	public static final SlotFilter ANY = ItemStack -> true;
 }
