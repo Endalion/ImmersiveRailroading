@@ -35,6 +35,7 @@ import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
 import net.minecraft.potion.PotionEffect;
+import net.minecraft.util.DamageSource;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -46,14 +47,13 @@ public class LocomotiveNuclear extends Locomotive {
 	
 	// Shared Fields
 		private Transmissions transmission;
+		private static DataParameter<Boolean> TURNED_ON = EntityDataManager.createKey(LocomotiveNuclear.class, DataSerializers.BOOLEAN);
 	
 	// Electrical Fields
 		private ISound horn;
 		private ISound idle;
 		private float soundThrottle;
 		private int turnOnOffDelay = 0;
-	
-		private static DataParameter<Boolean> TURNED_ON = EntityDataManager.createKey(LocomotiveNuclear.class, DataSerializers.BOOLEAN);
 
 	// Mechnical Fields
 		// PSI
@@ -76,12 +76,12 @@ public class LocomotiveNuclear extends Locomotive {
 		super(world, defID);
 		transmission = givenTransmission;
 		
-			this.getDataManager().register(TURNED_ON, false);
-			this.getDataManager().register(BOILER_PRESSURE, 0f);
-			this.getDataManager().register(BOILER_TEMPERATURE, ambientTemperature());
-			this.getDataManager().register(PRESSURE_VALVE, false);
-			this.getDataManager().register(BURN_TIME, new NBTTagCompound());
-			this.getDataManager().register(BURN_MAX, new NBTTagCompound());
+		this.getDataManager().register(TURNED_ON, false);
+		this.getDataManager().register(BOILER_PRESSURE, 0f);
+		this.getDataManager().register(BOILER_TEMPERATURE, ambientTemperature());
+		this.getDataManager().register(PRESSURE_VALVE, false);
+		this.getDataManager().register(BURN_TIME, new NBTTagCompound());
+		this.getDataManager().register(BURN_MAX, new NBTTagCompound());
 		
 		if (transmission == null) {
 			ImmersiveRailroading.error("Attempted to spawn in locomotive with null tranmission!");
@@ -119,6 +119,7 @@ public class LocomotiveNuclear extends Locomotive {
 		super.writeEntityToNBT(nbttagcompound);
 		nbttagcompound.setFloat("boiler_temperature", getBoilerTemperature());
 		nbttagcompound.setFloat("boiler_psi", getBoilerPressure());
+		nbttagcompound.setBoolean("turned_on", isTurnedOn());
 		nbttagcompound.setTag("burn_time", dataManager.get(BURN_TIME));
 		nbttagcompound.setTag("burn_max", dataManager.get(BURN_MAX));
 	}
@@ -128,6 +129,7 @@ public class LocomotiveNuclear extends Locomotive {
 		super.readEntityFromNBT(nbttagcompound);
 		setBoilerTemperature(nbttagcompound.getFloat("boiler_temperature"));
 		setBoilerPressure(nbttagcompound.getFloat("boiler_psi"));
+		setTurnedOn(nbttagcompound.getBoolean("turned_on"));
 		dataManager.set(BURN_TIME, (NBTTagCompound) nbttagcompound.getTag("burn_time"));
 		dataManager.set(BURN_MAX, (NBTTagCompound) nbttagcompound.getTag("burn_max"));
 	}
@@ -280,13 +282,16 @@ public class LocomotiveNuclear extends Locomotive {
 	@Override
 	public void onUpdate() {
 		super.onUpdate();
+		commonRenderUpdate();
+		nuclearReactorUpdate();
 		if (transmission == Transmissions.MECHANICAL) mechanicalRenderUpdate();
 		else if (transmission == Transmissions.ELECTRICAL) electricRenderUpdate();
-		nuclearReactorUpdate();
 	}
 
+	//Functional aspects of update
 	private void nuclearReactorUpdate() {
-		if (!this.isBuilt()) {
+		if (!this.isBuilt() || this.ticksExisted < 2) {
+			// Prevent explosions
 			return;
 		}
 		
@@ -317,11 +322,13 @@ public class LocomotiveNuclear extends Locomotive {
 			}
 		}
 		
+		float maxWorkingTemperature = (transmission == Transmissions.MECHANICAL) ? 195 : 275;
 		float boilerTemperature = getBoilerTemperature();
 		float boilerPressure = getBoilerPressure();
-		float waterLevelMB = this.getLiquidAmount();
-		double primaryWaterLoopLevel = Math.min(this.getTankCapacity().MilliBuckets()*0.1, (waterLevelMB + 1)) / 1000;
-		double secondaryWaterLoopLevel = (this.getTankCapacity().MilliBuckets() / 1000) - primaryWaterLoopLevel;
+		float boilingPoint = -3000/(boilerPressure + 37) + boilerPressure/(boilerPressure / 300 + 6) + 180;	//This is not psia, boilerPressure is zero'd to sea level 14.7 psi.
+		float waterLevelmB = this.getLiquidAmount();
+		double primaryWaterLoopLevel = Math.min(this.getTankCapacity().MilliBuckets()*0.1, (waterLevelmB + 1)) / 1000;
+		double secondaryWaterLoopLevel = Math.max(0, (waterLevelmB - this.getTankCapacity().MilliBuckets()*0.1)) / 1000 + 1;
 		Map<Integer, Integer> burnTime = getBurnTime();
 		Map<Integer, Integer> burnMax = getBurnMax();
 		Boolean changedBurnTime = false;
@@ -329,7 +336,7 @@ public class LocomotiveNuclear extends Locomotive {
 		int burningSlots = 0;
 		float waterUsed = 0;
 		
-		if (this.getLiquidAmount() > 0 && isRunning()) {
+		if (this.getLiquidAmount() > 0) {
 			for (int slot = 0; slot < this.cargoItems.getSlots()-2; slot ++) {
 				int remainingTime = burnTime.containsKey(slot) ? burnTime.get(slot) : 0;
 				if (remainingTime <= 0) {
@@ -372,14 +379,15 @@ public class LocomotiveNuclear extends Locomotive {
 			energyKCalDeltaTick -= radiatedKCalTick / 1000;
 		}
 		
-		//Simulate control rod insertion
+		//Simulate control rod insertion and cooling loop when shutdown
 		double controlRodPercentage = 0;
-		double effectiveEnergyHorsePower = energyKCalDeltaTick * 0.280541821 * (transmission == Transmissions.MECHANICAL ? 0.06 : 0.33);
-		if (effectiveEnergyHorsePower > this.getDefinition().getHorsePower(gauge)) { // 0.280541821 is kcal/tick to horsepower
-			controlRodPercentage = Math.min(1, 1 - (effectiveEnergyHorsePower / this.getDefinition().getHorsePower(gauge)));
-			
-			// Decrease temperature rapidly
-			energyKCalDeltaTick *= (1 - controlRodPercentage)/(2*20);
+		if (!isRunning() && energyKCalDeltaTick > 0) {
+			// Decrease temperature according to throttle inverse
+			controlRodPercentage = Math.min(0.98, 1 - Math.abs(this.getThrottle()));
+			energyKCalDeltaTick *= controlRodPercentage;
+			if (this.getPercentLiquidFull() > 10) {
+				boilerTemperature -= Math.max(0, (boilerTemperature - ambientTemperature()) * (controlRodPercentage/20));
+			}
 		}
 		
 		if (energyKCalDeltaTick != 0) {
@@ -391,10 +399,10 @@ public class LocomotiveNuclear extends Locomotive {
 			boilerTemperature += energyKCalDeltaTick / primaryWaterLoopLevel;
 		}
 		
-		float maxWorkingTemperature = (transmission == Transmissions.MECHANICAL) ? 195 : 275;
-		if (boilerTemperature > maxWorkingTemperature) {
+		if (boilerTemperature > boilingPoint) {
 			// Assume linear relationship between temperature and pressure
-			float heatTransfer = boilerTemperature - maxWorkingTemperature;
+			// Assume boiling point is relative to pressure
+			float heatTransfer = (boilerTemperature - boilingPoint);
 			boilerPressure += heatTransfer;
 
 			if (this.getPercentLiquidFull() > 10) {
@@ -411,8 +419,8 @@ public class LocomotiveNuclear extends Locomotive {
 		} else {
 			if (boilerPressure > 0) {
 				// Reduce pressure by needed temperature
-				boilerPressure = Math.max(0, boilerPressure - (maxWorkingTemperature - boilerTemperature));
-				boilerTemperature = maxWorkingTemperature;
+				boilerPressure = Math.max(0, boilerPressure - (boilingPoint - boilerTemperature));
+				boilerTemperature = boilingPoint;
 			}
 
 			this.getDataManager().set(PRESSURE_VALVE, false);
@@ -421,15 +429,14 @@ public class LocomotiveNuclear extends Locomotive {
 		float throttle = Math.abs(getThrottle());
 		if (throttle != 0 && boilerPressure > 0) {
 			// hp to kcal/t = 3.56453093673
-			/* This uses up the full potential power of the reactor, which is not what we're supposed to be doing.
-			 * double burnableSlots = this.cargoItems.getSlots()-2;
-			 * double maxKCalTick = burnableSlots * fissionEnergyKCalTick();
-			 * */
-			double maxKCalTick = this.getDefinition().getHorsePower(gauge) * 3.564f;
+			// 520gal/MWh or 0.00000228772 m3/kcal Average-ish water consumption according to Nuclear Energy Institute
+			float waterLossCoefficient = (transmission == Transmissions.MECHANICAL) ? 0.000554f : 0.000002287f;
+			double burnableSlots = this.cargoItems.getSlots()-2;
+			double maxKCalTick = burnableSlots * fissionEnergyKCalTick();
 			double maxPressureTick = maxKCalTick / secondaryWaterLoopLevel;
 			maxPressureTick = maxPressureTick * 0.8; // 20% more pressure gen capability to balance heat loss
 			
-			float delta = (float) (throttle * maxPressureTick); // 520gal/MWh or 0.00000228772 m3/kcal Around average water consumption according to Nuclear Energy Institute
+			float delta = (float) (throttle * maxPressureTick * waterLossCoefficient);
 			
 			boilerPressure = Math.max(0, boilerPressure - delta);
 			waterUsed += delta * Config.ConfigBalance.nuclearWaterUsage; 
@@ -461,27 +468,269 @@ public class LocomotiveNuclear extends Locomotive {
 			//MELTDOWN
 			
 			if (Config.ConfigDamage.explosionsEnabled && !world.isRemote) {
-				double effectRadius = 100 * this.gauge.value();
+				float effectRadius = 10f * (float)this.gauge.value();
 				BlockPos corner1 = new BlockPos(this.posX - effectRadius, this.posY - effectRadius, this.posZ - effectRadius);
 				BlockPos corner2 = new BlockPos(this.posX + effectRadius, this.posY + effectRadius, this.posZ + effectRadius);
 				for (EntityLivingBase entity : world.getEntitiesWithinAABB(EntityLivingBase.class, new AxisAlignedBB(corner1, corner2))) {
 					if (entity.isDead) continue;
-					if (this.getDistanceSq(entity) < (effectRadius * effectRadius) / 10) entity.addPotionEffect(new PotionEffect(MobEffects.WITHER, 600));
-					if (this.getDistanceSq(entity) < effectRadius * effectRadius) entity.addPotionEffect(new PotionEffect(MobEffects.POISON, 300));
+					float lethality = (effectRadius*effectRadius) / this.getDistance(entity);
+					if (lethality > 1) entity.attackEntityFrom((new DamageSource("immersiverailroading:nuked")).setDamageBypassesArmor(), (float) lethality);
+					if (lethality > 8) entity.addPotionEffect(new PotionEffect(MobEffects.POISON, 300, 1, false, false));
+					else if (lethality > 4) entity.addPotionEffect(new PotionEffect(MobEffects.POISON, 300, 0, false, false));
+					if (lethality > 10) entity.addPotionEffect(new PotionEffect(MobEffects.WITHER, 600, 0, false, false));
+					if (lethality > 20) entity.addPotionEffect(new PotionEffect(MobEffects.WITHER, 600, 1, false, false)); ; // Most things are most likely dead, but lets make it worse!
 				}
 				if (Config.ConfigDamage.explosionEnvDamageEnabled) {
-					for (int i = 0; i < 5; i++) {
-						world.newExplosion(this, this.posX, this.posY, this.posZ, (float)(boilerPressure * this.gauge.value()), true, true);
-					}
+					world.newExplosion(this, this.posX, this.posY, this.posZ, (float)(boilerPressure/8 * this.gauge.value()), true, true);
 				} else {
-					for (int i = 0; i < 5; i++) {
-						Explosion explosion = new Explosion(this.world, this, this.posX, this.posY, this.posZ, boilerPressure / 5, false, false);
-						explosion.doExplosionA();
-						explosion.doExplosionB(true);
+					Explosion explosion = new Explosion(this.world, this, this.posX, this.posY, this.posZ, boilerPressure / 5, false, false);
+					explosion.doExplosionA();
+					explosion.doExplosionB(true);
 				}
-			}
 		}
 			world.removeEntity(this);
+		}
+		
+		if (turnOnOffDelay > 0) {
+			turnOnOffDelay -= 1;
+		}
+	}
+	
+	private Map<String, Boolean> phaseOn = new HashMap<String, Boolean>();
+	private List<ISound> sndCache = new ArrayList<ISound>();
+	private int sndCacheId = 0;
+	private ISound whistle;
+	private List<ISound> chimes = new ArrayList<ISound>();
+	private float pullString = 0;
+	private float soundDampener = 0;
+	private ISound pressure;
+	private int tickMod = 0;
+	private void commonRenderUpdate() {
+		if (this.ticksExisted < 2) {
+			return;
+		}
+
+		if (world.isRemote) {
+			// Particles and Sound
+			
+			if (ConfigSound.soundEnabled) {
+				if (this.sndCache.size() == 0) {
+					this.whistle = ImmersiveRailroading.proxy.newSound(this.getDefinition().whistle, false, 150, this.soundGauge());
+					whistle.setPitch(1);
+					
+					if (this.getDefinition().quill != null) {
+						for (Chime chime : this.getDefinition().quill.chimes) {
+							this.chimes.add(ImmersiveRailroading.proxy.newSound(chime.sample, true, 150, this.soundGauge()));
+						}
+					}
+	
+					for (int i = 0; i < 32; i ++) {
+						sndCache.add(ImmersiveRailroading.proxy.newSound(this.getDefinition().chuff, false, 80, this.soundGauge()));
+					}
+					
+					this.idle = ImmersiveRailroading.proxy.newSound(this.getDefinition().idle, true, 40, this.soundGauge());
+					idle.setVolume(0.1f);
+					this.pressure = ImmersiveRailroading.proxy.newSound(this.getDefinition().pressure, true, 40, this.soundGauge());
+					pressure.setVolume(0.3f);
+				}
+				
+				if (this.getDataManager().get(HORN) < 1) {
+					pullString = 0;
+					soundDampener = 0;
+					for (ISound chime : chimes) {
+						if (chime.isPlaying()) {
+							chime.stop();
+						}
+					}
+				} else {
+					if (this.getBoilerPressure() > 0 || !Config.isFuelRequired(gauge)) {
+						if (this.getDefinition().quill == null) {
+							if (!this.whistle.isPlaying()) {
+								this.whistle.play(getPositionVector());
+							}
+						} else {
+							float maxDelta = 1/20f;
+							float delta = 0;
+							if (this.getDataManager().get(HORN) > 5) {
+								if (soundDampener < 0.4) {
+									soundDampener = 0.4f;
+								}
+								if (soundDampener < 1) {
+									soundDampener += 0.1;
+								}
+								if (this.getDataManager().get(HORN_PLAYER).isPresent()) {
+									for (Entity pass : this.getPassengers()) {
+										if (!pass.getPersistentID().equals(this.getDataManager().get(HORN_PLAYER).get())) {
+											continue;
+										}
+										
+										float newString = (pass.rotationPitch+90) / 180;
+										delta = newString - pullString;
+									}
+								} else {
+									delta = (float)this.getDefinition().quill.maxPull-pullString;
+								}
+							} else {
+								if (soundDampener > 0) {
+									soundDampener -= 0.07;
+								}
+								// Player probably released key or has net lag
+								delta = -pullString; 
+							}
+							
+							if (pullString == 0) {
+								pullString += delta*0.55;
+							} else {
+								pullString += Math.max(Math.min(delta, maxDelta), -maxDelta);
+							}
+							pullString = Math.min(pullString, (float)this.getDefinition().quill.maxPull);
+							
+							for (int i = 0; i < this.getDefinition().quill.chimes.size(); i++) {
+								ISound sound = this.chimes.get(i);
+								Chime chime = this.getDefinition().quill.chimes.get(i);
+								
+								double perc = pullString;
+								// Clamp to start/end
+								perc = Math.min(perc, chime.pull_end);
+								perc -= chime.pull_start;
+								
+								//Scale to clamped range
+								perc /= chime.pull_end - chime.pull_start;
+								
+								if (perc > 0) {
+									
+									double pitch = (chime.pitch_end - chime.pitch_start) * perc + chime.pitch_start;
+	
+									sound.setPitch((float) pitch);
+									sound.setVolume((float) (perc * soundDampener));
+									
+									if (!sound.isPlaying()) {
+										sound.play(getPositionVector());
+									}
+								} else {
+									if (sound.isPlaying()) {
+										sound.stop();
+									}
+								}
+							}
+						}
+					}
+				}
+				
+				if (this.getBoilerTemperature() > this.ambientTemperature() + 5) {
+					if (!idle.isPlaying()) {
+						idle.play(getPositionVector());
+					}
+				} else {
+					if (idle.isPlaying()) {
+						idle.stop();
+					}
+				}
+			}
+		
+			double phase;
+
+			Vec3d fakeMotion = new Vec3d(this.motionX, this.motionY, this.motionZ);// VecUtil.fromWrongYaw(this.getCurrentSpeed().minecraft(), this.rotationYaw);
+
+			List<RenderComponent> smokes = this.getDefinition().getComponents(RenderComponentType.PARTICLE_CHIMNEY_X,
+					gauge);
+			if (smokes != null && ConfigGraphics.particlesEnabled) {
+				phase = getPhase(4, 0);
+				for (RenderComponent smoke : smokes) {
+					Vec3d particlePos = this.getPositionVector().add(VecUtil.rotateWrongYaw(smoke.center(), this.rotationYaw + 180));
+					particlePos = particlePos.subtract(fakeMotion);
+					if (this.ticksExisted % 1 == 0) {
+						float darken = 0;
+						float thickness = Math.abs(this.getThrottle()) / 2;
+						for (int i : this.getBurnTime().values()) {
+							darken += i >= 1 ? 1 : 0;
+						}
+						if (darken == 0 && Config.isFuelRequired(gauge)) {
+							break;
+						}
+						darken /= this.getInventorySize() - 2.0;
+						darken *= 0.5;
+
+						double smokeMod = Math.min(1, Math.max(0.2, Math.abs(this.getCurrentSpeed().minecraft()) * 2));
+
+						int lifespan = (int) (200 * (1 + Math.abs(this.getThrottle())) * smokeMod * gauge.scale());
+						// lifespan *= size;
+
+						float verticalSpeed = 0.5f;// (0.5f + Math.abs(this.getThrottle())) * (float)gauge.scale();
+
+						double size = smoke.width() * (0.8 + smokeMod);
+						if (phase != 0 && Math.abs(this.getThrottle()) > 0.01 && Math.abs(this.getCurrentSpeed().metric()) / gauge.scale() < 30) {
+							double phaseSpike = Math.pow(phase, 8);
+							size *= 1 + phaseSpike * 1.5;
+							verticalSpeed *= 1 + phaseSpike / 2;
+						}
+
+						particlePos = particlePos.subtract(fakeMotion);
+
+						EntitySmokeParticle sp = new EntitySmokeParticle(world, lifespan, 0, thickness, size);
+						sp.setPosition(particlePos.x, particlePos.y, particlePos.z);
+						sp.setVelocity(fakeMotion.x, fakeMotion.y + verticalSpeed, fakeMotion.z);
+						world.spawnEntity(sp);
+					}
+				}
+
+				List<RenderComponent> steams = this.getDefinition().getComponents(RenderComponentType.PRESSURE_VALVE_X, gauge);
+				if (steams != null && (this.getDataManager().get(PRESSURE_VALVE) && Config.isFuelRequired(gauge))) {
+					if (ConfigSound.soundEnabled && ConfigSound.soundPressureValve) {
+						if (!pressure.isPlaying()) {
+							pressure.play(getPositionVector());
+						}
+					}
+					if (ConfigGraphics.particlesEnabled) {
+						for (RenderComponent steam : steams) {
+							Vec3d particlePos = this.getPositionVector().add(VecUtil.rotateWrongYaw(steam.center(), this.rotationYaw + 180));
+							particlePos = particlePos.subtract(fakeMotion);
+							EntitySmokeParticle sp = new EntitySmokeParticle(world, 40, 0, 0.2f, steam.width());
+							sp.setPosition(particlePos.x, particlePos.y, particlePos.z);
+							sp.setVelocity(fakeMotion.x, fakeMotion.y + 0.2 * gauge.scale(), fakeMotion.z);
+							world.spawnEntity(sp);
+						}
+					}
+				} else {
+					if (ConfigSound.soundEnabled && pressure.isPlaying()) {
+						pressure.stop();
+					}
+				}
+
+				if (ConfigSound.soundEnabled) {
+					// Update sound positions
+					if (whistle.isPlaying()) {
+						whistle.setPosition(getPositionVector());
+						whistle.setVelocity(getVelocity());
+						whistle.update();
+					}
+					for (ISound chime : chimes) {
+						if (chime.isPlaying()) {
+							chime.setPosition(getPositionVector());
+							chime.setVelocity(getVelocity());
+							chime.update();
+						}
+					}
+					if (idle.isPlaying()) {
+						idle.setPosition(getPositionVector());
+						idle.setVelocity(getVelocity());
+						idle.update();
+					}
+					if (pressure.isPlaying()) {
+						pressure.setPosition(getPositionVector());
+						pressure.setVelocity(getVelocity());
+						pressure.update();
+					}
+					for (int i = 0; i < sndCache.size(); i++) {
+						ISound snd = sndCache.get(i);
+						if (snd.isPlaying()) {
+							snd.setPosition(getPositionVector());
+							snd.setVelocity(getVelocity());
+							snd.update();
+						}
+					}
+				}
+			}
 		}
 	}
 	
@@ -556,185 +805,17 @@ public class LocomotiveNuclear extends Locomotive {
 			return;
 		}
 	}
-	
-	private Map<String, Boolean> phaseOn = new HashMap<String, Boolean>();
-	private List<ISound> sndCache = new ArrayList<ISound>();
-	private int sndCacheId = 0;
-	private ISound whistle;
-	private List<ISound> chimes = new ArrayList<ISound>();
-	private float pullString = 0;
-	private float soundDampener = 0;
-	private ISound pressure;
-	private int tickMod = 0;
-	private void mechanicalRenderUpdate() {
-			if (this.ticksExisted < 2) {
-				// Prevent explosions
-				return;
-			}
 
-			if (world.isRemote) {
-				// Particles and Sound
-				
-				if (ConfigSound.soundEnabled) {
-					if (this.sndCache.size() == 0) {
-						this.whistle = ImmersiveRailroading.proxy.newSound(this.getDefinition().whistle, false, 150, this.soundGauge());
-						whistle.setPitch(1);
-						
-						if (this.getDefinition().quill != null) {
-							for (Chime chime : this.getDefinition().quill.chimes) {
-								this.chimes.add(ImmersiveRailroading.proxy.newSound(chime.sample, true, 150, this.soundGauge()));
-							}
-						}
-		
-						for (int i = 0; i < 32; i ++) {
-							sndCache.add(ImmersiveRailroading.proxy.newSound(this.getDefinition().chuff, false, 80, this.soundGauge()));
-						}
-						
-						this.idle = ImmersiveRailroading.proxy.newSound(this.getDefinition().idle, true, 40, this.soundGauge());
-						idle.setVolume(0.1f);
-						this.pressure = ImmersiveRailroading.proxy.newSound(this.getDefinition().pressure, true, 40, this.soundGauge());
-						pressure.setVolume(0.3f);
-					}
-					
-					if (this.getDataManager().get(HORN) < 1) {
-						pullString = 0;
-						soundDampener = 0;
-						for (ISound chime : chimes) {
-							if (chime.isPlaying()) {
-								chime.stop();
-							}
-						}
-					} else {
-						if (this.getBoilerPressure() > 0 || !Config.isFuelRequired(gauge)) {
-							if (this.getDefinition().quill == null) {
-								if (!this.whistle.isPlaying()) {
-									this.whistle.play(getPositionVector());
-								}
-							} else {
-								float maxDelta = 1/20f;
-								float delta = 0;
-								if (this.getDataManager().get(HORN) > 5) {
-									if (soundDampener < 0.4) {
-										soundDampener = 0.4f;
-									}
-									if (soundDampener < 1) {
-										soundDampener += 0.1;
-									}
-									if (this.getDataManager().get(HORN_PLAYER).isPresent()) {
-										for (Entity pass : this.getPassengers()) {
-											if (!pass.getPersistentID().equals(this.getDataManager().get(HORN_PLAYER).get())) {
-												continue;
-											}
-											
-											float newString = (pass.rotationPitch+90) / 180;
-											delta = newString - pullString;
-										}
-									} else {
-										delta = (float)this.getDefinition().quill.maxPull-pullString;
-									}
-								} else {
-									if (soundDampener > 0) {
-										soundDampener -= 0.07;
-									}
-									// Player probably released key or has net lag
-									delta = -pullString; 
-								}
-								
-								if (pullString == 0) {
-									pullString += delta*0.55;
-								} else {
-									pullString += Math.max(Math.min(delta, maxDelta), -maxDelta);
-								}
-								pullString = Math.min(pullString, (float)this.getDefinition().quill.maxPull);
-								
-								for (int i = 0; i < this.getDefinition().quill.chimes.size(); i++) {
-									ISound sound = this.chimes.get(i);
-									Chime chime = this.getDefinition().quill.chimes.get(i);
-									
-									double perc = pullString;
-									// Clamp to start/end
-									perc = Math.min(perc, chime.pull_end);
-									perc -= chime.pull_start;
-									
-									//Scale to clamped range
-									perc /= chime.pull_end - chime.pull_start;
-									
-									if (perc > 0) {
-										
-										double pitch = (chime.pitch_end - chime.pitch_start) * perc + chime.pitch_start;
-		
-										sound.setPitch((float) pitch);
-										sound.setVolume((float) (perc * soundDampener));
-										
-										if (!sound.isPlaying()) {
-											sound.play(getPositionVector());
-										}
-									} else {
-										if (sound.isPlaying()) {
-											sound.stop();
-										}
-									}
-								}
-							}
-						}
-					}
-					
-					if (this.getBoilerTemperature() > this.ambientTemperature() + 5) {
-						if (!idle.isPlaying()) {
-							idle.play(getPositionVector());
-						}
-					} else {
-						if (idle.isPlaying()) {
-							idle.stop();
-						}
-					}
-				}
-				
+	private void mechanicalRenderUpdate() {
+		if (this.ticksExisted < 2) {
+			// Prevent explosions
+			return;
+		}
+
+		if (world.isRemote) {
 				double phase;
 				
 				Vec3d fakeMotion = new Vec3d(this.motionX, this.motionY, this.motionZ);//VecUtil.fromWrongYaw(this.getCurrentSpeed().minecraft(), this.rotationYaw);
-				
-				List<RenderComponent> smokes = this.getDefinition().getComponents(RenderComponentType.PARTICLE_CHIMNEY_X, gauge);
-				if (smokes != null && ConfigGraphics.particlesEnabled) {
-					phase = getPhase(4, 0);
-					for (RenderComponent smoke : smokes) {
-						Vec3d particlePos = this.getPositionVector().add(VecUtil.rotateWrongYaw(smoke.center(), this.rotationYaw + 180));
-						particlePos = particlePos.subtract(fakeMotion);
-						if (this.ticksExisted % 1 == 0 ) {
-							float darken = 0;
-							float thickness = Math.abs(this.getThrottle())/2;
-							for (int i : this.getBurnTime().values()) {
-								darken += i >= 1 ? 1 : 0;
-							}
-							if (darken == 0 && Config.isFuelRequired(gauge)) {
-								break;
-							}
-							darken /= this.getInventorySize() - 2.0;
-							darken *= 0.5;
-							
-							double smokeMod = Math.min(1, Math.max(0.2, Math.abs(this.getCurrentSpeed().minecraft())*2));
-							
-							int lifespan = (int) (200 * (1 + Math.abs(this.getThrottle())) * smokeMod * gauge.scale());
-							//lifespan *= size;
-							
-							float verticalSpeed = 0.5f;//(0.5f + Math.abs(this.getThrottle())) * (float)gauge.scale();
-							
-							double size = smoke.width() * (0.8 + smokeMod);
-							if (phase != 0 && Math.abs(this.getThrottle()) > 0.01 && Math.abs(this.getCurrentSpeed().metric()) / gauge.scale() < 30) {
-								double phaseSpike = Math.pow(phase, 8);
-								size *= 1 + phaseSpike*1.5;
-								verticalSpeed *= 1 + phaseSpike/2;
-							}
-							
-							particlePos = particlePos.subtract(fakeMotion);
-							
-							EntitySmokeParticle sp = new EntitySmokeParticle(world, lifespan , darken, thickness, size);
-							sp.setPosition(particlePos.x, particlePos.y, particlePos.z);
-							sp.setVelocity(fakeMotion.x, fakeMotion.y + verticalSpeed, fakeMotion.z);
-							world.spawnEntity(sp);
-						}
-					}
-				}
 				
 				List<RenderComponent> whistles = this.getDefinition().getComponents(RenderComponentType.WHISTLE, gauge);
 				if (	whistles != null &&
@@ -861,63 +942,6 @@ public class LocomotiveNuclear extends Locomotive {
 					}
 				}
 				
-				List<RenderComponent> steams = this.getDefinition().getComponents(RenderComponentType.PRESSURE_VALVE_X, gauge);
-				if (steams != null && (this.getDataManager().get(PRESSURE_VALVE) && Config.isFuelRequired(gauge))) {
-					if (ConfigSound.soundEnabled && ConfigSound.soundPressureValve) {
-						if (!pressure.isPlaying()) {
-							pressure.play(getPositionVector());
-						}
-					}
-					if (ConfigGraphics.particlesEnabled) {
-						for (RenderComponent steam : steams) {
-							Vec3d particlePos = this.getPositionVector().add(VecUtil.rotateWrongYaw(steam.center(), this.rotationYaw + 180));
-							particlePos = particlePos.subtract(fakeMotion);
-							EntitySmokeParticle sp = new EntitySmokeParticle(world, 40, 0, 0.2f, steam.width());
-							sp.setPosition(particlePos.x, particlePos.y, particlePos.z);
-							sp.setVelocity(fakeMotion.x, fakeMotion.y + 0.2 * gauge.scale(), fakeMotion.z);
-							world.spawnEntity(sp);
-						}
-					}
-				} else {
-					if (ConfigSound.soundEnabled && pressure.isPlaying()) {
-						pressure.stop();
-					}
-				}
-				
-				if (ConfigSound.soundEnabled) {
-					// Update sound positions
-					if (whistle.isPlaying()) {
-						whistle.setPosition(getPositionVector());
-						whistle.setVelocity(getVelocity());
-						whistle.update();
-					}
-					for (ISound chime : chimes) {
-						if (chime.isPlaying()) {
-							chime.setPosition(getPositionVector());
-							chime.setVelocity(getVelocity());
-							chime.update();
-						}
-					}
-					if (idle.isPlaying()) {
-						idle.setPosition(getPositionVector());
-						idle.setVelocity(getVelocity());
-						idle.update();
-					}
-					if (pressure.isPlaying()) {
-						pressure.setPosition(getPositionVector());
-						pressure.setVelocity(getVelocity());
-						pressure.update();
-					}
-					for (int i = 0; i < sndCache.size(); i ++) {
-						ISound snd = sndCache.get(i);
-						if (snd.isPlaying()) {
-							snd.setPosition(getPositionVector());
-							snd.setVelocity(getVelocity());
-							snd.update();
-						}
-					}
-				}
-				
 				return;
 			}
 	}
@@ -994,6 +1018,6 @@ public class LocomotiveNuclear extends Locomotive {
 		// Using a GE BWR-1 6x6 reactor rated at 65MW [https://en.wikipedia.org/wiki/GE_BWR], we assume one slot is 1/(4*9) fuel rod in this case, though this is a pure blind guess.
 		float optimalTemperature = 275;	//PWRs are designed for higher temp use than mechanical can allow.
 		float fissionEnergyKCalTick = (776.249f / (36*4*9));
-		return fissionEnergyKCalTick * Math.pow((getBoilerTemperature() / optimalTemperature), 4) * ConfigBalance.fissionHeatTimeScale;
+		return fissionEnergyKCalTick * 0.1*Math.pow((getBoilerTemperature() / optimalTemperature), 3) * ConfigBalance.fissionHeatTimeScale;
 	}
 }

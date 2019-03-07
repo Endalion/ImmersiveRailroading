@@ -6,7 +6,7 @@
 	"darken_model": "-0.05",
 	"properties": {
 		"mechanical": true,
-		"max_psi": 450,
+		"max_psi": 300,
 		"water_capacity_l": 95000,
 		"horsepower": 7500,
 		"tractive_effort_lbf": 135375,

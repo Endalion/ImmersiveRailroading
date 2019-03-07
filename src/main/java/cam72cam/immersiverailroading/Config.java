@@ -104,7 +104,7 @@ public class Config {
 		public static float locoWaterUsage = 10;
 		
 		@Comment("How much water the nuclear locomotive should use")
-		public static float nuclearWaterUsage = 1;
+		public static float nuclearWaterUsage = 10;
 
 		@Comment("How much you get payed per meter the villager traveled (default 1 emerald per km)")
 		public static double villagerPayoutPerMeter = 0.001;
@@ -153,7 +153,7 @@ public class Config {
 		public static Map<String, Integer> nuclearFuels = new HashMap<String, Integer>();
 		static {
 			nuclearFuels.clear();
-			// Oredict
+			// Oredict                       26280000
 			nuclearFuels.put("ingotUranium", 52560000);
 			nuclearFuels.put("ingotPlutonium", 928122000);	//HAHAHAHA- THIS IS OUT OF INT MAX RANGE (9281220000)
 		};
